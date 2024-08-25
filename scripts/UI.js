@@ -267,6 +267,37 @@ class UI {
             }
         });
     }
+
+    enableCardTouchSelection(player, callback) {
+        const handElement = document.querySelector(`#${player.id} .hand`);
+        const cardElements = handElement.querySelectorAll('.card');
+    
+        this.cardTouchCallback = (event) => {
+            event.preventDefault();
+            const cardElement = event.currentTarget;
+            const selectedCard = this.getCardFromElement(cardElement);
+            callback(selectedCard);
+        };
+    
+        cardElements.forEach(card => {
+            card.addEventListener('touchstart', this.cardTouchCallback);
+            card.classList.add('selectable');
+        });
+    }
+
+    disableCardTouchSelection(player) {
+        const handElement = document.querySelector(`#${player.id} .hand`);
+        const cardElements = handElement.querySelectorAll('.card');
+
+        if (this.cardTouchCallback) {
+            cardElements.forEach(card => {
+                card.removeEventListener('touchstart', this.cardTouchCallback);
+                card.classList.remove('selectable');
+            });
+            this.cardTouchCallback = null;
+        }
+    }
+
 }
 
 console.log('UI instance methods:', Object.getOwnPropertyNames(UI.prototype));

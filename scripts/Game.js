@@ -357,26 +357,45 @@ class Game {
     }
 
     promptForCardSelection(player) {
-        if (this.ui && typeof this.ui.enableCardSelection === 'function') {
-            // Disable any existing card selection before enabling a new one
+        // Disable any existing card selection before enabling a new one
+        if (this.ui && typeof this.ui.disableCardSelection === 'function') {
             this.ui.disableCardSelection(player);
-            
-            this.ui.enableCardSelection(player, (selectedCard) => {
-                const leadCard = this.trickCards.length > 0 ? this.trickCards[0].card : null;
-                const leadSuit = leadCard ? leadCard.suit : null;
-
-                if (canPlayCard(player, selectedCard, leadCard, leadSuit, this.currentTrumpSuit)) {
-                    this.ui.disableCardSelection(player);  // Disable selection after a valid card is chosen
-                    this.playCard(player, selectedCard);
-                } else {
-                    this.ui.showAlert('Invalid card selection. Please choose another card.', () => {
-                        // We don't need to call promptForCardSelection again here
-                        // The existing event listeners will allow the player to select another card
-                    });
-                }
-            });
+        }
+        if (this.ui && typeof this.ui.disableCardTouchSelection === 'function') {
+            this.ui.disableCardTouchSelection(player);
+        }
+    
+        const handleCardSelect = (selectedCard) => {
+            const leadCard = this.trickCards.length > 0 ? this.trickCards[0].card : null;
+            const leadSuit = leadCard ? leadCard.suit : null;
+    
+            if (canPlayCard(player, selectedCard, leadCard, leadSuit, this.currentTrumpSuit)) {
+                // Disable selection after a valid card is chosen
+                this.ui.disableCardSelection(player);
+                this.ui.disableCardTouchSelection(player);
+                this.playCard(player, selectedCard);
+            } else {
+                this.ui.showAlert('Invalid card selection. Please choose another card.', () => {
+                    // We don't need to call promptForCardSelection again here
+                    // The existing event listeners will allow the player to select another card
+                });
+            }
+        };
+    
+        if ('ontouchstart' in window) {
+            // For touch devices
+            if (this.ui && typeof this.ui.enableCardTouchSelection === 'function') {
+                this.ui.enableCardTouchSelection(player, handleCardSelect);
+            } else {
+                console.error('UI method enableCardTouchSelection is not available', this.ui);
+            }
         } else {
-            console.error('UI method enableCardSelection is not available', this.ui);
+            // For non-touch devices
+            if (this.ui && typeof this.ui.enableCardSelection === 'function') {
+                this.ui.enableCardSelection(player, handleCardSelect);
+            } else {
+                console.error('UI method enableCardSelection is not available', this.ui);
+            }
         }
     }
 

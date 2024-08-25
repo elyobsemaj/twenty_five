@@ -1,7 +1,3 @@
-* {
-  outline: 2px solid red;
-}
-
 body {
   background-color: #2b7a2b;
   height: 100vh;
@@ -55,15 +51,9 @@ body {
 .slot {
   width: 10vh;
   height: 15vh;
-  border: 2px solid rgba(173, 255, 47, 0.3); /* Softer green border */
-  border-radius: 5px;
-  background-color: rgba(0, 100, 0, 0.1); /* Slight green tint */
 }
 
-.slot:empty:hover {
-  background-color: rgba(0, 100, 0, 0.2); /* Darker green on hover */
-  cursor: pointer;
-}
+
 
 .name, .score {
   color: white;
@@ -174,5 +164,18 @@ body {
   #player2, #player4 {
     left: -50vh;
     right: -50vh;
+  }
+}
+
+@media screen and (orientation: portrait) {
+  body {
+      transform: rotate(-90deg);
+      transform-origin: left top;
+      width: 100vh;
+      height: 100vw;
+      overflow-x: hidden;
+      position: absolute;
+      top: 100%;
+      left: 0;
   }
 }

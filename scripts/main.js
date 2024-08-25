@@ -74,6 +74,102 @@ function startFirstTurn(dealerIndex) {
     game.startTurn();
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+    // Existing initialization code...
+
+    // Add mobile interaction handlers
+    if ('ontouchstart' in window) {
+        document.addEventListener('touchstart', handleTouchStart, false);
+        document.addEventListener('touchmove', handleTouchMove, false);
+        document.addEventListener('touchend', handleTouchEnd, false);
+    }
+});
+
+let xDown = null;
+let yDown = null;
+
+function handleTouchStart(evt) {
+    const firstTouch = evt.touches[0];
+    xDown = firstTouch.clientX;
+    yDown = firstTouch.clientY;
+}
+
+function handleTouchMove(evt) {
+    if (!xDown || !yDown) {
+        return;
+    }
+
+    const xUp = evt.touches[0].clientX;
+    const yUp = evt.touches[0].clientY;
+
+    const xDiff = xDown - xUp;
+    const yDiff = yDown - yUp;
+
+    if (Math.abs(xDiff) > Math.abs(yDiff)) {
+        if (xDiff > 0) {
+            /* left swipe */ 
+            console.log('Swiped left');
+        } else {
+            /* right swipe */
+            console.log('Swiped right');
+        }
+    } else {
+        if (yDiff > 0) {
+            /* up swipe */ 
+            console.log('Swiped up');
+        } else {
+            /* down swipe */
+            console.log('Swiped down');
+        }
+    }
+
+    // Reset values
+    xDown = null;
+    yDown = null;
+}
+
+function handleTouchEnd(evt) {
+    // Handle touch end event
+    console.log('Touch ended');
+}
+
+// You might want to add more specific handlers for your game elements
+function addCardTouchHandlers() {
+    const cards = document.querySelectorAll('.card');
+    cards.forEach(card => {
+        card.addEventListener('touchstart', handleCardTouch);
+    });
+}
+
+function handleCardTouch(evt) {
+    evt.preventDefault(); // Prevent default touch behavior
+    const card = evt.currentTarget;
+    // Add your card selection logic here
+    console.log('Card touched:', card);
+}
+
+function forceLandscape() {
+    if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(function(error) {
+            console.log('Unable to lock screen orientation:', error);
+        });
+    } else if (screen.lockOrientation) {
+        screen.lockOrientation('landscape');
+    } else if (screen.mozLockOrientation) {
+        screen.mozLockOrientation('landscape');
+    } else if (screen.msLockOrientation) {
+        screen.msLockOrientation('landscape');
+    }
+}
+
+// Call this function when the page loads
+document.addEventListener('DOMContentLoaded', forceLandscape);
+
+// Also try to force landscape on resize and orientation change
+window.addEventListener('resize', forceLandscape);
+window.addEventListener('orientationchange', forceLandscape);
+
+
 // Initialize the game when the page loads
 console.log('main.js loaded');
 window.onload = initializeGame;
