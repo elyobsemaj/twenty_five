@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Game UI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="player1" class="player-container">
+    <div class="deck"></div>
+    <div class="hand">
+      <div class="slot" data-slot-index="0"></div>
+      <div class="slot" data-slot-index="1"></div>
+      <div class="slot" data-slot-index="2"></div>
+      <div class="slot" data-slot-index="3"></div>
+      <div class="slot" data-slot-index="4"></div>
+    </div>
+    <div class="name">Player 1</div>
+    <div class="score">Score: 0</div>
+  </div>
+  
+  <div id="player2" class="player-container">
+    <div class="deck"></div>
+    <div class="hand">
+      <div class="slot" data-slot-index="0"></div>
+      <div class="slot" data-slot-index="1"></div>
+      <div class="slot" data-slot-index="2"></div>
+      <div class="slot" data-slot-index="3"></div>
+      <div class="slot" data-slot-index="4"></div>
+    </div>
+    <div class="name">Player 2</div>
+    <div class="score">Score: 0</div>
+  </div>
+  
+  <div id="player3" class="player-container">
+    <div class="deck"></div>
+    <div class="hand">
+      <div class="slot" data-slot-index="0"></div>
+      <div class="slot" data-slot-index="1"></div>
+      <div class="slot" data-slot-index="2"></div>
+      <div class="slot" data-slot-index="3"></div>
+      <div class="slot" data-slot-index="4"></div>
+    </div>
+    <div class="name">Player 3</div>
+    <div class="score">Score: 0</div>
+  </div>
+  
+  <div id="player4" class="player-container">
+    <div class="deck"></div>
+    <div class="hand">
+      <div class="slot" data-slot-index="0"></div>
+      <div class="slot" data-slot-index="1"></div>
+      <div class="slot" data-slot-index="2"></div>
+      <div class="slot" data-slot-index="3"></div>
+      <div class="slot" data-slot-index="4"></div>
+    </div>
+    <div class="name">Player 4</div>
+    <div class="score">Score: 0</div>
+  </div>
+  
+  <div class="played-cards">
+    <div class="played-card player1"></div>
+    <div class="played-card player2"></div>
+    <div class="played-card player3"></div>
+    <div class="played-card player4"></div>
+  </div>
+    <div class="played-cards">
+        <div class="played-card player1"></div>
+        <div class="played-card player2"></div>
+        <div class="played-card player3"></div>
+        <div class="played-card player4"></div>
+    </div>
+
+    <!-- Link to external JavaScript files -->
+    <script type="module" src="scripts/Utils.js"></script>
+    <script type="module" src="scripts/CardRules.js"></script>
+    <script type="module" src="scripts/Player.js"></script>
+    <script type="module" src="scripts/Deck.js"></script>
+    <script type="module" src="scripts/UI.js"></script>
+    <script type="module" src="scripts/ScoreManager.js"></script>
+    <script type="module" src="scripts/Game.js"></script>
+    <script type="module" src="scripts/main.js"></script>
+
+</body>
+</html>

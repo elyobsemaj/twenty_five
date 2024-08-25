@@ -1,0 +1,178 @@
+* {
+  outline: 2px solid red;
+}
+
+body {
+  background-color: #2b7a2b;
+  height: 100vh;
+  margin: 0;
+  font-family: Arial, sans-serif;
+  overflow: hidden;
+}
+
+
+.player-container {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.deck {
+  width: 10vh; /* Adjust for landscape mode */
+  height: 15vh;
+  max-width: 70px;
+  max-height: 105px;
+  border-radius: 5px;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-image: url('assets/card_back.png');
+  position: absolute;
+  top: -16vh;
+  left: calc(100% - 10vh);
+}
+
+.hand {
+  position: relative;
+  display: flex;
+  gap: 2vh;
+  width: calc(10vh * 5 + 2vh * 4); /* Width based on the number of cards and gaps */
+  height: 15vh; /* Ensure the hand has a defined height */
+}
+
+.card {
+  width: 100%;
+  height: 100%;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 5px;
+}
+
+
+.slot {
+  width: 10vh;
+  height: 15vh;
+  border: 2px solid rgba(173, 255, 47, 0.3); /* Softer green border */
+  border-radius: 5px;
+  background-color: rgba(0, 100, 0, 0.1); /* Slight green tint */
+}
+
+.slot:empty:hover {
+  background-color: rgba(0, 100, 0, 0.2); /* Darker green on hover */
+  cursor: pointer;
+}
+
+.name, .score {
+  color: white;
+  margin-top: 5px;
+  text-align: center;
+  font-size: 3vh; /* Smaller font size relative to viewport height */
+}
+
+#player1 {
+  bottom: 2vh; /* Adjust position using vh */
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+#player2 {
+  top: 50%;
+  left: -15vh; /* Adjust left position for landscape screens */
+  transform: translateY(-50%) rotate(90deg);
+}
+
+#player3 {
+  top: 2vh;
+  left: 50%;
+  transform: translateX(-50%) rotate(180deg);
+}
+
+#player4 {
+  top: 50%;
+  right: -15vh;
+  transform: translateY(-50%) rotate(-90deg);
+}
+
+.played-cards {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40vh; /* Use vh to keep square aspect ratio */
+  height: 40vh;
+  max-width: 300px;
+  max-height: 300px;
+  transform: translate(-50%, -50%);
+  
+}
+
+.played-card {
+  width: 10vh;
+  height: 15vh;
+  max-width: 70px;
+  max-height: 105px;
+  border-radius: 5px;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: absolute;
+}
+
+.played-card.player1 {
+  bottom: 0vh;
+  left: 15vh;
+  transform: rotate(0deg);
+}
+
+.played-card.player2 {
+  top: 14vh;
+  left: 2vh;
+  transform: rotate(90deg);
+}
+
+.played-card.player3 {
+  top: 0vh;
+  left: 15vh;
+  transform: rotate(180deg);
+}
+
+.played-card.player4 {
+  top: 14vh;
+  right: 2vh;
+  transform: rotate(-90deg);
+}
+
+.move-to-center {
+  transition: transform 1.0s ease;
+  transform: translateX(5vh) translateY(-5vh); /* Adjust based on your layout */
+}
+
+.card.selectable {
+  cursor: pointer;
+}
+
+.card.playable {
+  box-shadow: 0 0 1.5vh 0.5vh rgba(0, 255, 0, 0.5); /* Use vh for shadow */
+}
+
+@keyframes robbedCardAnimation {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.robbed-card {
+  animation: robbedCardAnimation 0.5s ease-in-out;
+}
+
+/* Media query for smaller screens in landscape */
+@media (max-width: 600px) and (orientation: landscape) {
+
+
+  #player2, #player4 {
+    left: -50vh;
+    right: -50vh;
+  }
+}
