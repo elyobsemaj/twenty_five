@@ -8,6 +8,33 @@ import { canPlayCard, initiateRobbing, checkAndHandleRobbing } from './CardRules
 import { getCardFromElement } from './Utils.js';
 
 let game, deck, scoreManager;
+let debugMode = false;
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'D' || event.key === 'd') {
+        debugMode = !debugMode;
+        console.log(`Debug mode ${debugMode ? 'enabled' : 'disabled'}`);
+        try {
+            updateAllHandsUI();
+        } catch (error) {
+            console.error('Error updating hands UI:', error);
+        }
+    }
+});
+
+function updateAllHandsUI() {
+    if (game && game.players) {
+        game.players.forEach(player => {
+            if (ui && typeof ui.updatePlayerHandUI === 'function') {
+                ui.updatePlayerHandUI(player, new Set(), debugMode);
+            } else {
+                console.error('UI or updatePlayerHandUI method not available');
+            }
+        });
+    } else {
+        console.error('Game or players not initialized');
+    }
+}
 
 function initializeGame() {
     const players = [
@@ -31,6 +58,7 @@ function initializeGame() {
     game.ui = ui;
     game.deck = deck;
     game.scoreManager = scoreManager;
+
 
     startNewGame();
 }

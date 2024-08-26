@@ -3,9 +3,54 @@
 class UI {
     constructor() {
         console.log('UI instance created');
+        this.playerNames = {
+            player1: 'You',
+            player2: 'Sally',
+            player3: 'Bob',
+            player4: 'Charlie'
+        };
+        this.updatePlayerNamesUI(); // Initialize UI with default names
     }
 
+    setPlayerNames(names) {
+        Object.keys(names).forEach(playerId => {
+            if (this.playerNames.hasOwnProperty(playerId)) {
+                this.playerNames[playerId] = names[playerId];
+            }
+        });
+        this.updatePlayerNamesUI(); // Update UI with new names
+    }
+
+    getPlayerName(playerId) {
+        return this.playerNames[playerId] || playerId;
+    }
+
+    updatePlayerNamesUI() {
+        Object.keys(this.playerNames).forEach(playerId => {
+            const nameElement = document.querySelector(`#${playerId} .name`);
+            if (nameElement) {
+                nameElement.textContent = this.playerNames[playerId];
+            } else {
+                console.warn(`Name element not found for ${playerId}`);
+            }
+        });
+    }
+
+
     showAlert(message, callback) {
+        // Replace both "Player X" and "Player playerX" formats with names
+        Object.keys(this.playerNames).forEach(playerId => {
+            const playerNumber = playerId.replace('player', '');
+            const regexFormats = [
+                new RegExp(`Player ${playerNumber}\\b`, 'g'),
+                new RegExp(`Player ${playerId}\\b`, 'g')
+            ];
+            
+            regexFormats.forEach(regex => {
+                message = message.replace(regex, this.playerNames[playerId]);
+            });
+        });
+        
         alert(message);
         if (callback) callback();
     }
@@ -55,7 +100,12 @@ class UI {
                     if (slotElement) {
                         const cardElement = document.createElement('div');
                         cardElement.classList.add('card');
-                        cardElement.style.backgroundImage = `url('assets/card${card.suit}_${card.rank}.png')`;
+                        if (player.isHuman) {
+                            cardElement.style.backgroundImage = `url('assets/card${card.suit}_${card.rank}.png')`;
+                        } else {
+                            cardElement.style.backgroundImage = `url('assets/card_back.png')`;
+                            cardElement.classList.add('face-down');
+                        }
                         cardElement.dataset.suit = card.suit;
                         cardElement.dataset.rank = card.rank;
                         slotElement.appendChild(cardElement);
@@ -136,6 +186,7 @@ class UI {
         };
     
         cardElements.forEach(card => {
+            card.removeEventListener('click', this.cardSelectionCallback);
             card.addEventListener('click', this.cardSelectionCallback);
             card.classList.add('selectable');
         });
@@ -191,26 +242,49 @@ class UI {
         });
     }
 
-    updatePlayerHandUI(player, emptySlots) {
+    updatePlayerHandUI(player, emptySlots, debugMode = false) {
         const handElement = document.querySelector(`#${player.id} .hand`);
         if (handElement) {
             const slotElements = handElement.querySelectorAll('.slot');
+            let handIndex = 0;
             slotElements.forEach((slot, index) => {
                 if (emptySlots.has(index)) {
+                    // Clear empty slots
                     slot.innerHTML = '';
                 } else {
-                    const card = player.hand[index - Array.from(emptySlots).filter(i => i < index).length];
+                    const card = player.hand[handIndex];
                     if (card) {
+                        let cardElement = slot.querySelector('.card');
+                        if (!cardElement) {
+                            cardElement = document.createElement('div');
+                            cardElement.classList.add('card');
+                            slot.appendChild(cardElement);
+                        }
+    
+                        // Preserve existing event listeners and classes
+                        const existingClasses = Array.from(cardElement.classList);
+                        const newCardElement = cardElement.cloneNode(true);
+                        existingClasses.forEach(cls => newCardElement.classList.add(cls));
+    
+                        if (player.isHuman || debugMode) {
+                            newCardElement.style.backgroundImage = `url('assets/card${card.suit}_${card.rank}.png')`;
+                            newCardElement.classList.remove('face-down');
+                        } else {
+                            newCardElement.style.backgroundImage = `url('assets/card_back.png')`;
+                            newCardElement.classList.add('face-down');
+                        }
+                        newCardElement.dataset.suit = card.suit;
+                        newCardElement.dataset.rank = card.rank;
+    
+                        slot.replaceChild(newCardElement, cardElement);
+                        handIndex++;
+                    } else {
+                        // If we've run out of cards, clear the slot
                         slot.innerHTML = '';
-                        const cardElement = document.createElement('div');
-                        cardElement.classList.add('card');
-                        cardElement.style.backgroundImage = `url('assets/card${card.suit}_${card.rank}.png')`;
-                        cardElement.dataset.suit = card.suit;
-                        cardElement.dataset.rank = card.rank;
-                        slot.appendChild(cardElement);
                     }
                 }
             });
+            console.log(`Updated hand UI for ${player.id}:`, player.hand, 'Empty slots:', Array.from(emptySlots));
         } else {
             console.error(`Hand element not found for ${player.id}`);
         }

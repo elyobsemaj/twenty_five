@@ -88,7 +88,7 @@ class Game {
 
         // Remove the card from the player's hand
         player.hand.splice(playedCardIndex, 1);
-        
+
         // Add the index to empty slots
         this.emptySlots[playerIndex].add(playedCardIndex);
 
@@ -100,8 +100,10 @@ class Game {
                     this.ui.showPlayedCard(player, card);
                 }
                 if (this.ui && typeof this.ui.updatePlayerHandUI === 'function') {
+                    // Pass the current empty slots for this player
                     this.ui.updatePlayerHandUI(player, this.emptySlots[playerIndex]);
                 }
+                // Give the UI a moment to update
                 setTimeout(resolve, 100);
             });
         };
@@ -109,7 +111,7 @@ class Game {
         updateUI().then(() => {
             console.log("Cards in trick so far:", this.trickCards);
             console.log(`${player.id}'s hand after playing:`, player.hand);
-    
+
             if (this.trickCards.length === 4) {
                 this.trickInProgress = true;
                 console.log("All cards played for this trick.");
@@ -170,7 +172,16 @@ class Game {
 
         this.updateScore(winningPlayer, 5);
 
-        this.ui.showAlert(`Player ${winningPlayer} wins the trick!`, () => {
+        let message;
+        if (winningPlayer === 'player1') {
+            message = "You win the trick!";
+        } else {
+            const winnerName = this.ui.getPlayerName(winningPlayer);
+            message = `${winnerName} wins the trick!`;
+        }
+
+        
+        this.ui.showAlert(message, () => {
             this.clearPlayedCards();
             this.trickInProgress = false;
             this.trickCards = [];
