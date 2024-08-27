@@ -6,18 +6,19 @@ function canPlayCard(player, card, leadCard, leadSuit, trumpSuit) {
         return true;
     }
 
-    const hasLeadSuit = player.hand.some(c => c.suit === leadSuit);
-    const hasTrump = player.hand.some(c => c.suit === trumpSuit || (c.suit === 'Hearts' && c.rank === 'A'));
+    const hasLeadSuit = player.hand.some(c => c !== null && c.suit === leadSuit);
+    const hasTrump = player.hand.some(c => c !== null && (c.suit === trumpSuit || (c.suit === 'Hearts' && c.rank === 'A')));
     const hasOtherTrump = player.hand.some(c => 
-        (c.suit === trumpSuit && !(c.suit === card.suit && c.rank === card.rank)) || 
-        (c.suit === 'Hearts' && c.rank === 'A' && !(c.suit === card.suit && c.rank === card.rank))
+        c !== null && 
+        ((c.suit === trumpSuit && !(c.suit === card.suit && c.rank === card.rank)) || 
+        (c.suit === 'Hearts' && c.rank === 'A' && !(c.suit === card.suit && c.rank === card.rank)))
     );
 
     // Special handling for Ace of Hearts (always considered a trump)
     if (card.suit === 'Hearts' && card.rank === 'A') {
         // Ace of Hearts must be played if 5 or J of trumps is led and no other trump
         if (leadCard.suit === trumpSuit && (leadCard.rank === '5' || leadCard.rank === 'J') && 
-            !player.hand.some(c => c.suit === trumpSuit && c.rank !== 'A')) {
+            !player.hand.some(c => c !== null && c.suit === trumpSuit && c.rank !== 'A')) {
             return true;
         }
         // Otherwise, it can be reneged
@@ -41,8 +42,8 @@ function canPlayCard(player, card, leadCard, leadSuit, trumpSuit) {
     if (leadCard.suit === trumpSuit || (leadCard.suit === 'Hearts' && leadCard.rank === 'A')) {
         if (hasTrump) {
             // Allow playing any card if the only trump is Ace of Hearts
-            if (player.hand.filter(c => c.suit === trumpSuit || (c.suit === 'Hearts' && c.rank === 'A')).length === 1 &&
-                player.hand.some(c => c.suit === 'Hearts' && c.rank === 'A')) {
+            if (player.hand.filter(c => c !== null && (c.suit === trumpSuit || (c.suit === 'Hearts' && c.rank === 'A'))).length === 1 &&
+                player.hand.some(c => c !== null && c.suit === 'Hearts' && c.rank === 'A')) {
                 return true;
             }
             return card.suit === trumpSuit || (card.suit === 'Hearts' && card.rank === 'A');
@@ -73,7 +74,7 @@ function initiateRobbing(game, players, trumpCard, callback) {
 
 function checkAndHandleRobbing(game, player, trumpCard, callback) {
     console.log(`Checking robbing for ${player.id}. Has robbed: ${game.playersWhoHaveRobbed.has(player.id)}`);
-    
+
     if (game.playersWhoHaveRobbed.has(player.id)) {
         console.log(`${player.id} has already robbed this hand. Skipping rob check.`);
         callback();
@@ -81,7 +82,7 @@ function checkAndHandleRobbing(game, player, trumpCard, callback) {
     }
 
     const aceOfTrumps = player.hand.find(card => card && card.suit === trumpCard.suit && card.rank === 'A');
-    
+
     if (aceOfTrumps) {
         handlePlayerRob(game, player, trumpCard, () => {
             game.playersWhoHaveRobbed.add(player.id);
@@ -97,11 +98,19 @@ function checkAndHandleRobbing(game, player, trumpCard, callback) {
 function handlePlayerRob(game, player, trumpCard, callback) {
     if (player.isHuman) {
         game.ui.showAlert("You must rob. Select a card to pay for the rob.", () => {
-            game.ui.enableCardSelection(player, (selectedCard) => {
-                performRob(game, player, selectedCard, trumpCard);
-                game.playersWhoHaveRobbed.add(player.id);
-                callback();
-            });
+            const enableRobSelection = () => {
+                game.ui.enableCardSelectionForRob(player, trumpCard.suit, (selectedCard) => {
+                    if (selectedCard.suit === trumpCard.suit && selectedCard.rank === 'A') {
+                        game.ui.showAlert("You cannot use the Ace of trumps to pay for the rob. Please select another card.", enableRobSelection);
+                    } else {
+                        performRob(game, player, selectedCard, trumpCard);
+                        game.playersWhoHaveRobbed.add(player.id);
+                        console.log(`${player.id} has now robbed. Added to playersWhoHaveRobbed.`);
+                        callback();
+                    }
+                });
+            };
+            enableRobSelection();
         });
     } else {
         const selectedCard = selectCardForRob(game, player, trumpCard.suit);
@@ -161,6 +170,7 @@ function selectCardForRob(game, player, trumpSuit) {
 }
 
 
+
 function performRob(game, player, selectedCard, trumpCard) {
     console.log(`${player.id}'s hand before robbing:`, JSON.stringify(player.hand));
     console.log(`${player.id} is robbing. Discarding ${selectedCard.rank} of ${selectedCard.suit} and taking ${trumpCard.rank} of ${trumpCard.suit}`);
@@ -168,11 +178,17 @@ function performRob(game, player, selectedCard, trumpCard) {
     // Check if the selected card is the Ace of trumps
     if (selectedCard.suit === trumpCard.suit && selectedCard.rank === 'A') {
         console.error("Cannot use Ace of trumps to pay for rob");
-        game.ui.showAlert("You cannot use the Ace of trumps to pay for the rob. Please select another card.", () => {
-            game.ui.enableCardSelection(player, (newSelectedCard) => {
-                performRob(game, player, newSelectedCard, trumpCard);
+        if (player.isHuman) {
+            game.ui.showAlert("You cannot use the Ace of trumps to pay for the rob. Please select another card.", () => {
+                game.ui.enableCardSelectionForRob(player, trumpCard.suit, (newSelectedCard) => {
+                    performRob(game, player, newSelectedCard, trumpCard);
+                });
             });
-        });
+        } else {
+            // For AI, select a different card
+            const newSelectedCard = selectCardForRob(game, player, trumpCard.suit);
+            performRob(game, player, newSelectedCard, trumpCard);
+        }
         return;
     }
 
@@ -211,6 +227,10 @@ function performRob(game, player, selectedCard, trumpCard) {
     if (player.hand.length !== initialHandSize) {
         console.error(`Error in robbing process: Hand size changed from ${initialHandSize} to ${player.hand.length}`);
     }
+
+    game.playersWhoHaveRobbed.add(player.id);
+    console.log(`${player.id} has now robbed. Added to playersWhoHaveRobbed.`);
 }
 
-export { canPlayCard, initiateRobbing, checkAndHandleRobbing , performRob, handleDealerRob};
+
+export { canPlayCard, initiateRobbing, checkAndHandleRobbing , performRob, handleDealerRob, handlePlayerRob};

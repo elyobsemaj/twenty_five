@@ -173,10 +173,10 @@ class UI {
     enableCardSelection(player, callback) {
         const handElement = document.querySelector(`#${player.id} .hand`);
         const cardElements = handElement.querySelectorAll('.card');
-    
+
         this.cardSelectionCallback = (event) => {
             const cardElement = event.target.closest('.card');
-            if (cardElement) {
+            if (cardElement && cardElement.dataset.suit && cardElement.dataset.rank) {
                 const selectedCard = {
                     suit: cardElement.dataset.suit,
                     rank: cardElement.dataset.rank
@@ -184,11 +184,37 @@ class UI {
                 callback(selectedCard);
             }
         };
-    
+
         cardElements.forEach(card => {
-            card.removeEventListener('click', this.cardSelectionCallback);
-            card.addEventListener('click', this.cardSelectionCallback);
-            card.classList.add('selectable');
+            if (card.dataset.suit && card.dataset.rank) {
+                card.removeEventListener('click', this.cardSelectionCallback);
+                card.addEventListener('click', this.cardSelectionCallback);
+                card.classList.add('selectable');
+            }
+        });
+    }
+
+    enableCardTouchSelection(player, callback) {
+        const handElement = document.querySelector(`#${player.id} .hand`);
+        const cardElements = handElement.querySelectorAll('.card');
+
+        this.cardTouchCallback = (event) => {
+            event.preventDefault();
+            const cardElement = event.currentTarget;
+            if (cardElement.dataset.suit && cardElement.dataset.rank) {
+                const selectedCard = {
+                    suit: cardElement.dataset.suit,
+                    rank: cardElement.dataset.rank
+                };
+                callback(selectedCard);
+            }
+        };
+
+        cardElements.forEach(card => {
+            if (card.dataset.suit && card.dataset.rank) {
+                card.addEventListener('touchstart', this.cardTouchCallback);
+                card.classList.add('selectable');
+            }
         });
     }
 
@@ -243,48 +269,48 @@ class UI {
     }
 
     updatePlayerHandUI(player, emptySlots, debugMode = false) {
+        console.log(`Updating hand UI for ${player.id}`);
+        console.log(`Player's hand:`, JSON.stringify(player.hand));
+        console.log(`Empty slots:`, Array.from(emptySlots));
+
         const handElement = document.querySelector(`#${player.id} .hand`);
         if (handElement) {
             const slotElements = handElement.querySelectorAll('.slot');
-            let handIndex = 0;
             slotElements.forEach((slot, index) => {
-                if (emptySlots.has(index)) {
+                console.log(`Processing slot ${index} for ${player.id}`);
+                const card = player.hand[index];
+                if (card === null || emptySlots.has(index)) {
+                    console.log(`Slot ${index} is empty`);
                     // Clear empty slots
                     slot.innerHTML = '';
-                } else {
-                    const card = player.hand[handIndex];
-                    if (card) {
-                        let cardElement = slot.querySelector('.card');
-                        if (!cardElement) {
-                            cardElement = document.createElement('div');
-                            cardElement.classList.add('card');
-                            slot.appendChild(cardElement);
-                        }
-    
-                        // Preserve existing event listeners and classes
-                        const existingClasses = Array.from(cardElement.classList);
-                        const newCardElement = cardElement.cloneNode(true);
-                        existingClasses.forEach(cls => newCardElement.classList.add(cls));
-    
-                        if (player.isHuman || debugMode) {
-                            newCardElement.style.backgroundImage = `url('assets/card${card.suit}_${card.rank}.png')`;
-                            newCardElement.classList.remove('face-down');
-                        } else {
-                            newCardElement.style.backgroundImage = `url('assets/card_back.png')`;
-                            newCardElement.classList.add('face-down');
-                        }
-                        newCardElement.dataset.suit = card.suit;
-                        newCardElement.dataset.rank = card.rank;
-    
-                        slot.replaceChild(newCardElement, cardElement);
-                        handIndex++;
-                    } else {
-                        // If we've run out of cards, clear the slot
-                        slot.innerHTML = '';
+                } else if (card) {
+                    console.log(`Adding card to slot ${index}:`, JSON.stringify(card));
+                    let cardElement = slot.querySelector('.card');
+                    if (!cardElement) {
+                        cardElement = document.createElement('div');
+                        cardElement.classList.add('card');
+                        slot.appendChild(cardElement);
                     }
+
+                    // Preserve existing event listeners and classes
+                    const existingClasses = Array.from(cardElement.classList);
+                    const newCardElement = cardElement.cloneNode(true);
+                    existingClasses.forEach(cls => newCardElement.classList.add(cls));
+
+                    if (player.isHuman || debugMode) {
+                        newCardElement.style.backgroundImage = `url('assets/card${card.suit}_${card.rank}.png')`;
+                        newCardElement.classList.remove('face-down');
+                    } else {
+                        newCardElement.style.backgroundImage = `url('assets/card_back.png')`;
+                        newCardElement.classList.add('face-down');
+                    }
+                    newCardElement.dataset.suit = card.suit;
+                    newCardElement.dataset.rank = card.rank;
+
+                    slot.replaceChild(newCardElement, cardElement);
                 }
             });
-            console.log(`Updated hand UI for ${player.id}:`, player.hand, 'Empty slots:', Array.from(emptySlots));
+            console.log(`Finished updating hand UI for ${player.id}`);
         } else {
             console.error(`Hand element not found for ${player.id}`);
         }
@@ -339,23 +365,6 @@ class UI {
             if (deckElement) {
                 deckElement.style.visibility = 'hidden';
             }
-        });
-    }
-
-    enableCardTouchSelection(player, callback) {
-        const handElement = document.querySelector(`#${player.id} .hand`);
-        const cardElements = handElement.querySelectorAll('.card');
-    
-        this.cardTouchCallback = (event) => {
-            event.preventDefault();
-            const cardElement = event.currentTarget;
-            const selectedCard = this.getCardFromElement(cardElement);
-            callback(selectedCard);
-        };
-    
-        cardElements.forEach(card => {
-            card.addEventListener('touchstart', this.cardTouchCallback);
-            card.classList.add('selectable');
         });
     }
 
