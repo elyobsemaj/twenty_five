@@ -6,21 +6,23 @@ function canPlayCard(player, card, leadCard, leadSuit, trumpSuit) {
         return true;
     }
 
-    const hasLeadSuit = player.hand.some(c => c !== null && c.suit === leadSuit);
+    const hasLeadSuit = player.hand.some(c => c !== null && c.suit === leadSuit && !(c.suit === 'Hearts' && c.rank === 'A'));
     const hasTrump = player.hand.some(c => c !== null && (c.suit === trumpSuit || (c.suit === 'Hearts' && c.rank === 'A')));
-    const hasOtherTrump = player.hand.some(c => 
-        c !== null && 
-        ((c.suit === trumpSuit && !(c.suit === card.suit && c.rank === card.rank)) || 
+    const hasAceOfHearts = player.hand.some(c => c !== null && c.suit === 'Hearts' && c.rank === 'A');
+    const hasOtherTrump = player.hand.some(c =>
+        c !== null &&
+        ((c.suit === trumpSuit && !(c.suit === card.suit && c.rank === card.rank)) ||
         (c.suit === 'Hearts' && c.rank === 'A' && !(c.suit === card.suit && c.rank === card.rank)))
     );
+    const hasHeart = player.hand.some(c => c !== null && c.suit === 'Hearts');
 
     // Special handling for Ace of Hearts (always considered a trump)
     if (card.suit === 'Hearts' && card.rank === 'A') {
         // Ace of Hearts must be played if 5 or J of trumps is led and no other trump
         if (leadCard.suit === trumpSuit && (leadCard.rank === '5' || leadCard.rank === 'J') && 
-            !player.hand.some(c => c !== null && c.suit === trumpSuit && c.rank !== 'A')) {
-            return true;
-        }
+        !player.hand.some(c => c !== null && c.suit === trumpSuit && c.rank !== 'A')) {
+        return true; // Must play Ace of Hearts
+    }
         // Otherwise, it can be reneged
         return true;
     }
@@ -38,6 +40,11 @@ function canPlayCard(player, card, leadCard, leadSuit, trumpSuit) {
         return true; // Can be reneged in other cases
     }
 
+    // New case: Ace of Hearts led, but player has no trump
+    if (leadCard.suit === 'Hearts' && leadCard.rank === 'A' && !hasTrump) {
+        return card.suit === 'Hearts' || !hasHeart;
+    }
+
     // If trump is led
     if (leadCard.suit === trumpSuit || (leadCard.suit === 'Hearts' && leadCard.rank === 'A')) {
         if (hasTrump) {
@@ -49,6 +56,11 @@ function canPlayCard(player, card, leadCard, leadSuit, trumpSuit) {
             return card.suit === trumpSuit || (card.suit === 'Hearts' && card.rank === 'A');
         }
         return true; // Can play any card if no trump
+    }
+
+    // If Hearts is led and player only has Ace of Hearts, they can play any card
+    if (leadSuit === 'Hearts' && !hasLeadSuit && hasAceOfHearts) {
+        return true;
     }
 
     // If player has the lead suit, they must follow suit or can play trump
@@ -120,49 +132,48 @@ function handlePlayerRob(game, player, trumpCard, callback) {
     }
 }
 
-function handleDealerRob(game, dealer, trumpCard, resolve) {
-    if (game.playersWhoHaveRobbed.has(dealer.id)) {
-        console.log(`Dealer ${dealer.id} has already robbed this hand.`);
-        resolve();
-        return;
-    }
-
-    if (dealer.isHuman) {
-        game.ui.showAlert("You (the dealer) must rob the Ace. Select a card to pay for the rob.", () => {
-            game.ui.enableCardSelection(dealer, (selectedCard) => {
-                if (selectedCard.suit === trumpCard.suit && selectedCard.rank === 'A') {
-                    game.ui.showAlert("You cannot use the Ace of trumps to pay for the rob. Please select another card.", () => {
-                        game.ui.enableCardSelection(dealer, (newSelectedCard) => {
-                            performRob(game, dealer, newSelectedCard, trumpCard);
-                            game.playersWhoHaveRobbed.add(dealer.id);
-                            game.ui.showAlert(`You (the dealer) have robbed.`, () => {
-                                game.isFirstTurnAfterDeal = false;
-                                resolve();
-                            });
-                        });
-                    });
-                } else {
-                    performRob(game, dealer, selectedCard, trumpCard);
-                    game.playersWhoHaveRobbed.add(dealer.id);
-                    game.ui.showAlert(`You (the dealer) have robbed.`, () => {
-                        game.isFirstTurnAfterDeal = false;
-                        resolve();
-                    });
-                }
-            });
-        });
-    } else {
-        const selectedCard = selectCardForRob(game, dealer, trumpCard.suit);
-        performRob(game, dealer, selectedCard, trumpCard);
-        game.playersWhoHaveRobbed.add(dealer.id);
-        game.ui.showAlert(`The dealer (Player ${dealer.id}) has robbed.`, () => {
-            game.isFirstTurnAfterDeal = false;
+async function handleDealerRob(game, dealer, trumpCard) {
+    return new Promise((resolve) => {
+        if (game.playersWhoHaveRobbed.has(dealer.id)) {
+            console.log(`Dealer ${dealer.id} has already robbed this hand.`);
             resolve();
+            return;
+        }
+
+        game.ui.showAlert(`${game.ui.getPlayerName(dealer.id)} (Dealer) is robbing.`, () => {
+            if (dealer.isHuman) {
+                game.ui.showAlert("You (the dealer) must rob the Ace. Select a card to pay for the rob.", () => {
+                    game.ui.enableCardSelection(dealer, (selectedCard) => {
+                        if (selectedCard.suit === trumpCard.suit && selectedCard.rank === 'A') {
+                            game.ui.showAlert("You cannot use the Ace of trumps to pay for the rob. Please select another card.", () => {
+                                game.ui.enableCardSelection(dealer, (newSelectedCard) => {
+                                    performRob(game, dealer, newSelectedCard, trumpCard);
+                                    game.playersWhoHaveRobbed.add(dealer.id);
+                                        game.isFirstTurnAfterDeal = false;
+                                        console.log("Human dealer rob completed");
+                                        resolve();
+                                });
+                            });
+                        } else {
+                            performRob(game, dealer, selectedCard, trumpCard);
+                            game.playersWhoHaveRobbed.add(dealer.id);
+                                game.isFirstTurnAfterDeal = false;
+                                console.log("Human dealer rob completed");
+                                resolve();
+                        }
+                    });
+                });
+            } else {
+                const selectedCard = game.selectCardForRob(dealer, trumpCard.suit);
+                performRob(game, dealer, selectedCard, trumpCard);
+                game.playersWhoHaveRobbed.add(dealer.id);
+                game.isFirstTurnAfterDeal = false;
+                console.log("AI dealer rob completed");
+                resolve();
+            }
         });
-    }
+    });
 }
-
-
 
 function selectCardForRob(game, player, trumpSuit) {
     // Filter out the Ace of trumps and return the first valid card
@@ -172,6 +183,10 @@ function selectCardForRob(game, player, trumpSuit) {
 
 
 function performRob(game, player, selectedCard, trumpCard) {
+    if (!trumpCard || typeof trumpCard !== 'object') {
+        console.error('Invalid trumpCard in performRob:', trumpCard);
+        return;
+    }
     console.log(`${player.id}'s hand before robbing:`, JSON.stringify(player.hand));
     console.log(`${player.id} is robbing. Discarding ${selectedCard.rank} of ${selectedCard.suit} and taking ${trumpCard.rank} of ${trumpCard.suit}`);
 

@@ -145,7 +145,7 @@ class Game {
             if (this.trickCards.length === 4) {
                 this.trickInProgress = true;
                 console.log("All cards played for this trick.");
-                setTimeout(() => this.evaluateTrick(), 1000);
+                setTimeout(() => this.evaluateTrick(), 2000);
             } else {
                 this.endTurn();
             }
@@ -365,22 +365,24 @@ class Game {
 
         // Update UI and then start the game
         this.updateUIForNewHand()
-            .then(() => {
-                if (trumpCard.rank === 'A') {
-                    const dealer = this.players[this.dealerIndex];
-                    return new Promise(resolve => {
+        .then(() => {
+            if (trumpCard.rank === 'A') {
+                const dealer = this.players[this.dealerIndex];
+                return new Promise(resolve => {
+                    this.ui.showAlert(`${this.ui.getPlayerName(dealer.id)} (Dealer) is robbing.`, () => {
                         handleDealerRob(this, dealer, trumpCard, resolve);
                     });
-                } else {
-                    this.isFirstTurnAfterDeal = true;
-                    return Promise.resolve();
-                }
-            })
-            .then(() => {
-                console.log(`Starting turn for player ${this.currentTurnIndex + 1}`);
-                this.startTurn();
-            })
-            .catch(error => console.error('Error in startNewHand:', error));
+                });
+            } else {
+                this.isFirstTurnAfterDeal = true;
+                return Promise.resolve();
+            }
+        })
+        .then(() => {
+            console.log(`Starting turn for player ${this.currentTurnIndex + 1}`);
+            this.startTurn();
+        })
+        .catch(error => console.error('Error in startNewHand:', error));
     }
 
     updateUIForNewHand() {
@@ -528,46 +530,75 @@ class Game {
     getAISelectedCard(player) {
         const leadCard = this.trickCards.length > 0 ? this.trickCards[0].card : null;
         const leadSuit = leadCard ? leadCard.suit : null;
-
+    
         // Filter out null cards and then get playable cards
         const validCards = player.hand.filter(card => card !== null);
         const playableCards = validCards.filter(card => 
             canPlayCard(player, card, leadCard, leadSuit, this.currentTrumpSuit)
         );
-
+    
         if (playableCards.length === 0) {
             console.warn('No playable cards found for AI player. This should not happen.');
             return validCards[Math.floor(Math.random() * validCards.length)];
         }
+    
+        return this.selectAICard(playableCards, leadCard, this.currentTrumpSuit);
+    }
 
+    selectAICard(playableCards, leadCard, trumpSuit) {
         const redTrumpRanks = ['2', '3', '4', '6', '7', '8', '9', '10', 'Q', 'K', 'A', 'J', '5'];
         const blackTrumpRanks = ['10', '9', '8', '7', '6', '4', '3', '2', 'Q', 'K', 'A', 'J', '5'];
         const redRanks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
         const blackRanks = ['10', '9', '8', '7', '6', '5', '4', '3', '2', 'A', 'J', 'Q', 'K'];
-
-        const trumpCards = playableCards.filter(card => 
-            card.suit === this.currentTrumpSuit || (card.suit === 'Hearts' && card.rank === 'A')
-        );
-
-        const trumpRanks = ['Hearts', 'Diamonds'].includes(this.currentTrumpSuit) ? redTrumpRanks : blackTrumpRanks;
-
-        // If leading, prefer to lead a non-trump if possible
+    
+        // If leading, choose a random card
         if (!leadCard) {
-            const nonTrumpCards = playableCards.filter(card => card.suit !== this.currentTrumpSuit && !(card.suit === 'Hearts' && card.rank === 'A'));
-            if (nonTrumpCards.length > 0) {
-                const ranks = ['Hearts', 'Diamonds'].includes(nonTrumpCards[0].suit) ? redRanks : blackRanks;
-                return nonTrumpCards.reduce((highest, current) =>
-                    ranks.indexOf(current.rank) < ranks.indexOf(highest.rank) ? current : highest
+            return playableCards[Math.floor(Math.random() * playableCards.length)];
+        }
+    
+        const trumpRanks = ['Hearts', 'Diamonds'].includes(trumpSuit) ? redTrumpRanks : blackTrumpRanks;
+        const trumpCards = playableCards.filter(card => 
+            card.suit === trumpSuit || (card.suit === 'Hearts' && card.rank === 'A')
+        );
+    
+        // Find the highest trump played so far
+        const highestTrumpPlayed = this.trickCards
+            .filter(played => played.card.suit === trumpSuit || (played.card.suit === 'Hearts' && played.card.rank === 'A'))
+            .reduce((highest, current) => 
+                trumpRanks.indexOf(current.card.rank) > trumpRanks.indexOf(highest.card.rank) ? current : highest
+            , { card: { rank: '2' } });  // Default to lowest rank if no trump played
+    
+        // If we have trumps, check if we can win with them
+        if (trumpCards.length > 0) {
+            const winningTrump = trumpCards.find(card => 
+                trumpRanks.indexOf(card.rank) > trumpRanks.indexOf(highestTrumpPlayed.card.rank)
+            );
+    
+            if (winningTrump) {
+                // Play the lowest winning trump
+                return trumpCards.reduce((lowest, current) => 
+                    trumpRanks.indexOf(current.rank) > trumpRanks.indexOf(highestTrumpPlayed.card.rank) &&
+                    trumpRanks.indexOf(current.rank) < trumpRanks.indexOf(lowest.rank) ? current : lowest
                 );
             }
         }
-
-        // ... (rest of the AI logic remains the same)
-
-        // If can't follow suit and don't have trump, play lowest card
-        const ranks = ['Hearts', 'Diamonds'].includes(playableCards[0].suit) ? redRanks : blackRanks;
-        return playableCards.reduce((lowest, current) =>
-            ranks.indexOf(current.rank) > ranks.indexOf(lowest.rank) ? current : lowest
+    
+        // If we can't win with a trump or have no trumps, play a non-trump if possible
+        const nonTrumpCards = playableCards.filter(card => 
+            card.suit !== trumpSuit && !(card.suit === 'Hearts' && card.rank === 'A')
+        );
+    
+        if (nonTrumpCards.length > 0) {
+            // Play the lowest non-trump
+            const ranks = ['Hearts', 'Diamonds'].includes(nonTrumpCards[0].suit) ? redRanks : blackRanks;
+            return nonTrumpCards.reduce((lowest, current) =>
+                ranks.indexOf(current.rank) > ranks.indexOf(lowest.rank) ? current : lowest
+            );
+        }
+    
+        // If we only have trumps left, play the lowest
+        return trumpCards.reduce((lowest, current) =>
+            trumpRanks.indexOf(current.rank) > trumpRanks.indexOf(lowest.rank) ? current : lowest
         );
     }
 

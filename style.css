@@ -55,11 +55,15 @@ body {
 
 
 
-.name, .score {
+.name {
   color: white;
-  margin-top: 5px;
-  text-align: center;
-  font-size: 3vh; /* Smaller font size relative to viewport height */
+  text-align: bottom;
+  font-size: 4vh; /* Smaller font size relative to viewport height */
+}
+
+.score {
+  color: white;
+  font-size: 6vh; /* Smaller font size relative to viewport height */
 }
 
 #player1 {

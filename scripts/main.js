@@ -4,7 +4,7 @@ import ui from './UI.js';
 import Deck from './Deck.js';
 import { Player, AIPlayer } from './Player.js';
 import ScoreManager from './ScoreManager.js';
-import { canPlayCard, initiateRobbing, checkAndHandleRobbing } from './CardRules.js';
+import { canPlayCard, initiateRobbing, checkAndHandleRobbing, handleDealerRob } from './CardRules.js';
 import { getCardFromElement } from './Utils.js';
 
 let game, deck, scoreManager;
@@ -36,7 +36,7 @@ function updateAllHandsUI() {
     }
 }
 
-function initializeGame() {
+async function initializeGame() {
     const players = [
         new Player('player1', true),
         new AIPlayer('player2'),
@@ -59,38 +59,63 @@ function initializeGame() {
     game.deck = deck;
     game.scoreManager = scoreManager;
 
+    // Wait for all assets to load
+    await loadAllAssets();
 
     startNewGame();
 }
 
-function startNewGame() {
-    ui.resetGameUI();
+async function loadAllAssets() {
+    const cardAssets = [
+        'assets/card_back.png',
+        // Add all other card asset paths here
+    ];
+
+    const loadPromises = cardAssets.map(asset => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = asset;
+        });
+    });
+
+    try {
+        await Promise.all(loadPromises);
+        console.log('All assets loaded successfully');
+    } catch (error) {
+        console.error('Error loading assets:', error);
+    }
+}
+
+async function startNewGame() {
+    await ui.resetGameUI();
     deck.reset();
 
     const dealerIndex = Math.floor(Math.random() * 4);
     console.log(`Player ${dealerIndex + 1} is the dealer.`);
 
-    game.players.forEach((player, index) => {
+    for (const [index, player] of game.players.entries()) {
         player.isDealer = (index === dealerIndex);
         player.hand = deck.deal(5);
-        ui.initializeHandUI(player);
-    });
+        await ui.initializeHandUI(player);
+    }
 
     const trumpCard = deck.cards.pop();
     if (trumpCard) {
         game.setTrumpSuit(trumpCard.suit, trumpCard);
         console.log(`The trump card is: ${trumpCard.rank} of ${trumpCard.suit}`);
     
-        ui.initializeDeckUI(dealerIndex, trumpCard);
+        await ui.initializeDeckUI(dealerIndex, trumpCard);
 
         if (trumpCard.rank === 'A') {
             const dealer = game.players[dealerIndex];
-            game.initiateRobbing([dealer], trumpCard, () => {
-                startFirstTurn(dealerIndex);
-            });
-        } else {
-            startFirstTurn(dealerIndex);
+            await handleDealerRob(game, dealer, trumpCard);
         }
+
+        // Ensure this is called after handleDealerRob completes
+        console.log("Starting first turn after dealing and potential robbing");
+        startFirstTurn(dealerIndex);
     } else {
         console.error('Failed to get a trump card from the deck');
         // Handle this error case, perhaps by restarting the game or showing an error message
@@ -99,6 +124,7 @@ function startNewGame() {
 
 function startFirstTurn(dealerIndex) {
     game.currentTurnIndex = (dealerIndex + 1) % 4;
+    console.log(`Starting turn for player ${game.currentTurnIndex + 1}`);
     game.startTurn();
 }
 

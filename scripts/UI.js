@@ -130,6 +130,8 @@ class UI {
             if (index === dealerIndex) {
                 deckElement.style.visibility = 'visible';
                 deckElement.style.backgroundImage = `url('assets/card${trumpCard.suit}_${trumpCard.rank}.png')`;
+                // Store the trump suit on the deck element
+                deckElement.dataset.trumpSuit = trumpCard.suit;
             } else {
                 deckElement.style.visibility = 'hidden';
             }
@@ -319,8 +321,9 @@ class UI {
     updateDeckUIAfterRob(dealerIndex) {
         const deckElement = document.querySelector(`#player${dealerIndex + 1} .deck`);
         if (deckElement) {
-            // Change the top card of the deck to show the card back
-            deckElement.style.backgroundImage = `url('assets/card_back.png')`;
+            const trumpSuit = deckElement.dataset.trumpSuit;
+            // Change the top card of the deck to show the trump suit card
+            deckElement.style.backgroundImage = `url('assets/card${trumpSuit}.png')`;
         } else {
             console.error('Deck element not found');
         }
