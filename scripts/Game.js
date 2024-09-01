@@ -319,12 +319,13 @@ class Game {
         this.playersWhoHaveRobbed.clear();
         this.emptySlots = this.players.map(() => new Set());
 
-        // Update dealer
-        this.dealerIndex = (this.dealerIndex + 1) % this.players.length;
-         // Update dealer status for all players
-         this.players.forEach((player, index) => {
-            player.isDealer = (index === this.dealerIndex);
-        });
+        // Move to the next dealer
+    this.dealerIndex = (this.dealerIndex + 1) % this.players.length;
+    
+    // Update dealer status for all players
+    this.players.forEach((player, index) => {
+        player.isDealer = (index === this.dealerIndex);
+    });
 
         console.log(`Player ${this.getDealerNumber()} is the dealer for this hand.`);
 
@@ -427,12 +428,17 @@ class Game {
     }
 
     enableHumanPlay(player) {
-        
-        this.promptForCardSelection(player);
+        const leadCard = this.trickCards.length > 0 ? this.trickCards[0].card : null;
+        const leadSuit = leadCard ? leadCard.suit : null;
+        const playableCards = player.hand.filter(card => 
+            card !== null && canPlayCard(player, card, leadCard, leadSuit, this.currentTrumpSuit)
+        );
+
+        this.ui.highlightPlayableCards(player, playableCards);
+        this.promptForCardSelection(player, playableCards);
     }
 
-    promptForCardSelection(player) {
-        // Disable any existing card selection before enabling a new one
+    promptForCardSelection(player, playableCards) {
         if (this.ui && typeof this.ui.disableCardSelection === 'function') {
             this.ui.disableCardSelection(player);
         }
@@ -441,31 +447,24 @@ class Game {
         }
 
         const handleCardSelect = (selectedCard) => {
-            const leadCard = this.trickCards.length > 0 ? this.trickCards[0].card : null;
-            const leadSuit = leadCard ? leadCard.suit : null;
-
-            if (canPlayCard(player, selectedCard, leadCard, leadSuit, this.currentTrumpSuit)) {
-                // Disable selection after a valid card is chosen
+            if (playableCards.some(card => card.suit === selectedCard.suit && card.rank === selectedCard.rank)) {
                 this.ui.disableCardSelection(player);
                 this.ui.disableCardTouchSelection(player);
                 this.playCard(player, selectedCard);
             } else {
                 this.ui.showAlert('Invalid card selection. Please choose another card.', () => {
-                    // We don't need to call promptForCardSelection again here
-                    // The existing event listeners will allow the player to select another card
+                    this.promptForCardSelection(player, playableCards);
                 });
             }
         };
 
         if ('ontouchstart' in window) {
-            // For touch devices
             if (this.ui && typeof this.ui.enableCardTouchSelection === 'function') {
                 this.ui.enableCardTouchSelection(player, handleCardSelect);
             } else {
                 console.error('UI method enableCardTouchSelection is not available', this.ui);
             }
         } else {
-            // For non-touch devices
             if (this.ui && typeof this.ui.enableCardSelection === 'function') {
                 this.ui.enableCardSelection(player, handleCardSelect);
             } else {
@@ -530,19 +529,18 @@ class Game {
     getAISelectedCard(player) {
         const leadCard = this.trickCards.length > 0 ? this.trickCards[0].card : null;
         const leadSuit = leadCard ? leadCard.suit : null;
-    
-        // Filter out null cards and then get playable cards
-        const validCards = player.hand.filter(card => card !== null);
-        const playableCards = validCards.filter(card => 
-            canPlayCard(player, card, leadCard, leadSuit, this.currentTrumpSuit)
+        const playableCards = player.hand.filter(card => 
+            card !== null && canPlayCard(player, card, leadCard, leadSuit, this.currentTrumpSuit)
         );
-    
+
         if (playableCards.length === 0) {
             console.warn('No playable cards found for AI player. This should not happen.');
-            return validCards[Math.floor(Math.random() * validCards.length)];
+            return player.hand.find(card => card !== null);
         }
-    
-        return this.selectAICard(playableCards, leadCard, this.currentTrumpSuit);
+
+        // AI logic to select the best card...
+        // For simplicity, we'll just return a random playable card
+        return playableCards[Math.floor(Math.random() * playableCards.length)];
     }
 
     selectAICard(playableCards, leadCard, trumpSuit) {

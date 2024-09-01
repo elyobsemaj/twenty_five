@@ -36,6 +36,20 @@ class UI {
         });
     }
 
+    updateDealerUI(dealerIndex, callback) {
+        const players = ['player1', 'player2', 'player3', 'player4'];
+        players.forEach((playerId, index) => {
+            const deckElement = document.querySelector(`#${playerId} .deck`);
+            if (deckElement) {
+                if (index === dealerIndex) {
+                    deckElement.style.visibility = 'visible';
+                } else {
+                    deckElement.style.visibility = 'hidden';
+                }
+            }
+        });
+        if (callback) callback();
+    }
 
     showAlert(message, callback) {
         // Replace both "Player X" and "Player playerX" formats with names

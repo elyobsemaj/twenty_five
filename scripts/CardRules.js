@@ -19,10 +19,10 @@ function canPlayCard(player, card, leadCard, leadSuit, trumpSuit) {
     // Special handling for Ace of Hearts (always considered a trump)
     if (card.suit === 'Hearts' && card.rank === 'A') {
         // Ace of Hearts must be played if 5 or J of trumps is led and no other trump
-        if (leadCard.suit === trumpSuit && (leadCard.rank === '5' || leadCard.rank === 'J') && 
-        !player.hand.some(c => c !== null && c.suit === trumpSuit && c.rank !== 'A')) {
-        return true; // Must play Ace of Hearts
-    }
+        if (leadCard.suit === trumpSuit && (leadCard.rank === '5' || leadCard.rank === 'J') &&
+            !player.hand.some(c => c !== null && c.suit === trumpSuit && c.rank !== 'A')) {
+            return true; // Must play Ace of Hearts
+        }
         // Otherwise, it can be reneged
         return true;
     }
@@ -48,6 +48,10 @@ function canPlayCard(player, card, leadCard, leadSuit, trumpSuit) {
     // If trump is led
     if (leadCard.suit === trumpSuit || (leadCard.suit === 'Hearts' && leadCard.rank === 'A')) {
         if (hasTrump) {
+            // Must play Ace of Hearts if Jack of trumps is led and it's the only trump
+            if (leadCard.rank === 'J' && hasAceOfHearts && !hasOtherTrump) {
+                return card.suit === 'Hearts' && card.rank === 'A';
+            }
             // Allow playing any card if the only trump is Ace of Hearts
             if (player.hand.filter(c => c !== null && (c.suit === trumpSuit || (c.suit === 'Hearts' && c.rank === 'A'))).length === 1 &&
                 player.hand.some(c => c !== null && c.suit === 'Hearts' && c.rank === 'A')) {
