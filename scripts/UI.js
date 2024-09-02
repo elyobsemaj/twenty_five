@@ -276,10 +276,13 @@ class UI {
 
         cardElements.forEach(cardElement => {
             const card = this.getCardFromElement(cardElement);
-            if (playableCards.some(pc => pc.suit === card.suit && pc.rank === card.rank)) {
-                cardElement.classList.add('playable');
-            } else {
-                cardElement.classList.remove('playable');
+            if (card) {
+                const isPlayable = playableCards.some(pc => pc.suit === card.suit && pc.rank === card.rank);
+                if (isPlayable) {
+                    cardElement.classList.add('playable');
+                } else {
+                    cardElement.classList.remove('playable');
+                }
             }
         });
     }

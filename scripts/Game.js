@@ -3,6 +3,8 @@
 import { canPlayCard, initiateRobbing, checkAndHandleRobbing, performRob, handleDealerRob, handlePlayerRob } from './CardRules.js';
 import Deck from './Deck.js';
 
+let game;
+
 class Game {
     constructor(ui) {
         this.players = [
@@ -41,7 +43,7 @@ class Game {
         }
         const currentPlayer = this.players[this.currentTurnIndex];
         console.log(`Starting turn for ${currentPlayer.id} (Player ${this.getPlayerNumber(currentPlayer)})`);
-    
+
         const handleTurn = () => {
             if (currentPlayer.isHuman) {
                 this.enableHumanPlay(currentPlayer);
@@ -54,23 +56,12 @@ class Game {
         };
 
         if (!this.playersWhoHaveRobbed.has(currentPlayer.id)) {
-            if (this.isFirstTurnAfterDeal && this.currentTrumpCard.rank === 'A' && currentPlayer.isDealer) {
-                handleDealerRob(this, currentPlayer, this.currentTrumpCard, () => {
-                    this.isFirstTurnAfterDeal = false;
-                    handleTurn();
-                });
-            } else {
-                const aceOfTrumps = currentPlayer.hand.find(card => card && card.suit === this.currentTrumpSuit && card.rank === 'A');
-                if (aceOfTrumps) {
-                    handlePlayerRob(this, currentPlayer, this.currentTrumpCard, handleTurn);
-                } else {
-                    handleTurn();
-                }
-            }
+            checkAndHandleRobbing(this, currentPlayer, this.currentTrumpCard, handleTurn);
         } else {
             handleTurn();
         }
     }
+
 
     continuePlayerTurn(player) {
         if (player.isHuman) {
@@ -237,12 +228,12 @@ class Game {
 
     endGame() {
         const winner = this.players.find(player => player.score >= 25);
-        const newDealerIndex = (this.players.findIndex(p => p.isDealer) + 1) % 4;
+        const newDealerIndex = (this.dealerIndex + 1) % 4;
         const newDealer = this.players[newDealerIndex];
 
-        this.ui.showAlert(`Player ${winner.id} wins! Player ${newDealer.id} deals for the new game.`, () => {
+        this.ui.showAlert(`${this.ui.getPlayerName(winner.id)} wins! ${this.ui.getPlayerName(newDealer.id)} deals for the new game.`, () => {
             this.resetGame();
-            this.startNewGame(newDealerIndex);
+            this.startNewGame();
         });
     }
 
@@ -250,15 +241,9 @@ class Game {
         this.players.forEach(player => {
             player.score = 0;
             player.hand = [];
-            player.isDealer = false;
-            
-            // Update the UI to show the reset score
-            if (this.ui && typeof this.ui.updateScoreUI === 'function') {
-                this.ui.updateScoreUI(player.id, player.score);
-            } else {
-                console.error('UI method updateScoreUI is not available', this.ui);
-            }
+            // Don't reset isDealer here
         });
+        // Don't reset dealerIndex here
         this.currentTurnIndex = 0;
         this.trickCards = [];
         this.currentTrumpSuit = '';
@@ -277,57 +262,81 @@ class Game {
         }
     }
 
-    startNewGame() {
+    async startNewGame() {
+        console.log("=== Starting New Game ===");
+        
+        await this.ui.resetGameUI();
+        this.deck.reset();
+
         if (this.isFirstGame) {
             this.dealerIndex = Math.floor(Math.random() * this.players.length);
             this.isFirstGame = false;
         } else {
-            // Move to the next dealer
             this.dealerIndex = (this.dealerIndex + 1) % this.players.length;
         }
 
-        console.log(`Starting new game. Dealer is Player ${this.getDealerNumber()}`);
+        console.log(`Player ${this.dealerIndex + 1} is the dealer.`);
 
-        // Reset game state
-        this.players.forEach(player => {
-            player.score = 0;
-            player.hand = [];
-            player.isDealer = false;
+        this.players.forEach((player, index) => {
+            player.isDealer = (index === this.dealerIndex);
+            player.hand = this.deck.deal(5);
+            player.score = 0; // Reset score for new game
         });
-        this.players[this.dealerIndex].isDealer = true;
 
-        this.trickCards = [];
-        this.currentTrumpSuit = '';
-        this.currentTrumpCard = null;
-        this.trickInProgress = false;
-        this.playersWhoHaveRobbed.clear();
-        this.emptySlots = this.players.map(() => new Set());
+        const trumpCard = this.deck.cards.pop();
+        if (trumpCard) {
+            this.setTrumpSuit(trumpCard.suit, trumpCard);
+            console.log(`The trump card is: ${trumpCard.rank} of ${trumpCard.suit}`);
 
-        // Reset UI
-        if (this.ui && typeof this.ui.resetGameUI === 'function') {
-            this.ui.resetGameUI();
+            await this.ui.initializeDeckUI(this.dealerIndex, trumpCard);
+
+            for (const player of this.players) {
+                await this.ui.initializeHandUI(player);
+            }
+
+            if (trumpCard.rank === 'A') {
+                const dealer = this.players[this.dealerIndex];
+                await handleDealerRob(this, dealer, trumpCard);
+            }
+
+            console.log("Starting first turn after dealing and potential robbing");
+            this.startFirstTurn();
+        } else {
+            console.error('Failed to get a trump card from the deck');
+            this.ui.showAlert('Error: Failed to get a valid trump card. The game will be reset.', () => {
+                this.resetGame();
+                this.startNewGame();
+            });
         }
 
-        // Start the first hand of the new game
-        this.startNewHand();
+        console.log("=== New Game Setup Complete ===");
     }
 
-    startNewHand() {
-        console.log("Starting a new hand");
+    startFirstTurn() {
+        this.currentTurnIndex = (this.dealerIndex + 1) % this.players.length;
+        console.log(`Starting turn for player ${this.currentTurnIndex + 1}`);
+        this.startTurn();
+    }
+
+    startNewHand(isNewHand = true) {
+        console.log("=== Starting New Hand ===");
+        console.log(`Previous dealerIndex: ${this.dealerIndex}`);
 
         this.resetTrick();
         this.playersWhoHaveRobbed.clear();
         this.emptySlots = this.players.map(() => new Set());
 
         // Move to the next dealer
-    this.dealerIndex = (this.dealerIndex + 1) % this.players.length;
+        this.dealerIndex = (this.dealerIndex + 1) % this.players.length;
+        console.log(`New dealerIndex: ${this.dealerIndex}`);    
     
-    // Update dealer status for all players
-    this.players.forEach((player, index) => {
-        player.isDealer = (index === this.dealerIndex);
-    });
+        // Update dealer status for all players
+        this.players.forEach((player, index) => {
+            player.isDealer = (index === this.dealerIndex);
+            console.log(`Player ${player.id} isDealer: ${player.isDealer}`);
+        });
 
-        console.log(`Player ${this.getDealerNumber()} is the dealer for this hand.`);
+        console.log(`Player ${this.getDealerNumber()} is the dealer for this hand (dealerIndex: ${this.dealerIndex}).`);
 
         this.deck.reset();
         this.deck.shuffle();
@@ -336,7 +345,7 @@ class Game {
             console.error("Not enough cards in the deck to start a new hand");
             this.ui.showAlert("Error: Not enough cards to start a new hand. The game will be reset.", () => {
                 this.resetGame();
-                this.startNewGame(Math.floor(Math.random() * this.players.length));
+                this.startNewGame();
             });
             return;
         }
@@ -356,34 +365,34 @@ class Game {
             console.error('Failed to get a valid trump card from the deck');
             this.ui.showAlert("Error: Failed to get a valid trump card. The game will be reset.", () => {
                 this.resetGame();
-                this.startNewGame(Math.floor(Math.random() * this.players.length));
+                this.startNewGame();
             });
             return;
         }
 
-          // Set the first player to the left of the dealer
-          this.currentTurnIndex = (this.dealerIndex + 1) % this.players.length;
+        // Set the first player to the left of the dealer
+        this.currentTurnIndex = (this.dealerIndex + 1) % this.players.length;
+        console.log(`First player for this hand is Player ${this.currentTurnIndex + 1} (to the left of the dealer)`);    
 
         // Update UI and then start the game
         this.updateUIForNewHand()
         .then(() => {
-            if (trumpCard.rank === 'A') {
+            if (this.currentTrumpCard.rank === 'A') {
                 const dealer = this.players[this.dealerIndex];
                 return new Promise(resolve => {
                     this.ui.showAlert(`${this.ui.getPlayerName(dealer.id)} (Dealer) is robbing.`, () => {
-                        handleDealerRob(this, dealer, trumpCard, resolve);
+                        handleDealerRob(this, dealer, this.currentTrumpCard, resolve);
                     });
                 });
             } else {
-                this.isFirstTurnAfterDeal = true;
                 return Promise.resolve();
             }
         })
         .then(() => {
-            console.log(`Starting turn for player ${this.currentTurnIndex + 1}`);
             this.startTurn();
         })
         .catch(error => console.error('Error in startNewHand:', error));
+        console.log("=== New Hand Setup Complete ===");
     }
 
     updateUIForNewHand() {

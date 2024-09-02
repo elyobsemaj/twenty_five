@@ -1,81 +1,109 @@
 // CardRules.js
 
 function canPlayCard(player, card, leadCard, leadSuit, trumpSuit) {
-    // If there's no lead card, this is the first play of the trick
+    console.log(`Checking playability for ${card.rank} of ${card.suit}`);
+    console.log(`Lead card: ${leadCard ? leadCard.rank + ' of ' + leadCard.suit : 'None'}`);
+    console.log(`Lead suit: ${leadSuit}, Trump suit: ${trumpSuit}`);
+
+    // If no lead card, all cards are playable
     if (!leadCard) {
+        console.log('No lead card, card is playable');
         return true;
     }
 
     const hasLeadSuit = player.hand.some(c => c !== null && c.suit === leadSuit && !(c.suit === 'Hearts' && c.rank === 'A'));
     const hasTrump = player.hand.some(c => c !== null && (c.suit === trumpSuit || (c.suit === 'Hearts' && c.rank === 'A')));
     const hasAceOfHearts = player.hand.some(c => c !== null && c.suit === 'Hearts' && c.rank === 'A');
+    const hasJackOfTrump = player.hand.some(c => c !== null && c.suit === trumpSuit && c.rank === 'J');
+    const has5OfTrump = player.hand.some(c => c !== null && c.suit === trumpSuit && c.rank === '5');
     const hasOtherTrump = player.hand.some(c =>
         c !== null &&
-        ((c.suit === trumpSuit && !(c.suit === card.suit && c.rank === card.rank)) ||
-        (c.suit === 'Hearts' && c.rank === 'A' && !(c.suit === card.suit && c.rank === card.rank)))
+        ((c.suit === trumpSuit && !(c.rank === 'J' || c.rank === '5')) ||
+        (c.suit === 'Hearts' && c.rank === 'A'))
     );
-    const hasHeart = player.hand.some(c => c !== null && c.suit === 'Hearts');
 
-    // Special handling for Ace of Hearts (always considered a trump)
-    if (card.suit === 'Hearts' && card.rank === 'A') {
-        // Ace of Hearts must be played if 5 or J of trumps is led and no other trump
-        if (leadCard.suit === trumpSuit && (leadCard.rank === '5' || leadCard.rank === 'J') &&
-            !player.hand.some(c => c !== null && c.suit === trumpSuit && c.rank !== 'A')) {
-            return true; // Must play Ace of Hearts
-        }
-        // Otherwise, it can be reneged
+    console.log(`Has lead suit: ${hasLeadSuit}, Has trump: ${hasTrump}`);
+    console.log(`Has Ace of Hearts: ${hasAceOfHearts}, Has Jack of Trump: ${hasJackOfTrump}, Has 5 of Trump: ${has5OfTrump}`);
+
+    // Ace of Hearts, Jack of trump, and 5 of trump are always playable
+    if ((card.suit === 'Hearts' && card.rank === 'A') ||
+        (card.suit === trumpSuit && (card.rank === 'J' || card.rank === '5'))) {
+        console.log('Special card (A♥, J♠, or 5♠) is always playable');
         return true;
     }
 
-    // Handling for 5 of trumps
-    if (card.suit === trumpSuit && card.rank === '5') {
-        return true; // 5 of trumps can always be reneged
-    }
-
-    // Handling for J of trumps
-    if (card.suit === trumpSuit && card.rank === 'J') {
-        if (leadCard.suit === trumpSuit && leadCard.rank === '5' && !hasOtherTrump) {
-            return true; // Must play J of trumps if 5 of trumps led and no other trump
-        }
-        return true; // Can be reneged in other cases
-    }
-
-    // New case: Ace of Hearts led, but player has no trump
-    if (leadCard.suit === 'Hearts' && leadCard.rank === 'A' && !hasTrump) {
-        return card.suit === 'Hearts' || !hasHeart;
-    }
-
-    // If trump is led
-    if (leadCard.suit === trumpSuit || (leadCard.suit === 'Hearts' && leadCard.rank === 'A')) {
-        if (hasTrump) {
-            // Must play Ace of Hearts if Jack of trumps is led and it's the only trump
-            if (leadCard.rank === 'J' && hasAceOfHearts && !hasOtherTrump) {
-                return card.suit === 'Hearts' && card.rank === 'A';
-            }
-            // Allow playing any card if the only trump is Ace of Hearts
-            if (player.hand.filter(c => c !== null && (c.suit === trumpSuit || (c.suit === 'Hearts' && c.rank === 'A'))).length === 1 &&
-                player.hand.some(c => c !== null && c.suit === 'Hearts' && c.rank === 'A')) {
-                return true;
-            }
-            return card.suit === trumpSuit || (card.suit === 'Hearts' && card.rank === 'A');
-        }
-        return true; // Can play any card if no trump
-    }
-
-    // If Hearts is led and player only has Ace of Hearts, they can play any card
-    if (leadSuit === 'Hearts' && !hasLeadSuit && hasAceOfHearts) {
+    // Player can play lead suit or trump
+    if (card.suit === leadSuit || card.suit === trumpSuit) {
+        console.log('Card is lead suit or trump, it is playable');
         return true;
     }
 
-    // If player has the lead suit, they must follow suit or can play trump
+    // If player has the lead suit, they must play it
     if (hasLeadSuit) {
-        return card.suit === leadSuit || card.suit === trumpSuit || (card.suit === 'Hearts' && card.rank === 'A');
+        const isLeadSuit = card.suit === leadSuit && !(card.suit === 'Hearts' && card.rank === 'A');
+        console.log(`Player has lead suit. Card ${isLeadSuit ? 'is' : 'is not'} lead suit`);
+        return isLeadSuit;
     }
 
     // If player doesn't have the lead suit, they can play any card
+    if (!hasLeadSuit) {
+        console.log('Player does not have lead suit, can play any card');
+        return true;
+    }
+
+    // Special cases for when trump is led
+    if (leadCard.suit === trumpSuit || (leadCard.suit === 'Hearts' && leadCard.rank === 'A')) {
+        console.log('Trump was led');
+        // If 5 of trumps is led
+        if (leadCard.rank === '5' && !hasOtherTrump) {
+            console.log('5 of trumps was led and player has no other trump');
+            if (hasJackOfTrump && hasAceOfHearts) {
+                const result = (card.suit === trumpSuit && card.rank === 'J') || (card.suit === 'Hearts' && card.rank === 'A');
+                console.log(`Player has J♠ and A♥. Card ${result ? 'is' : 'is not'} J♠ or A♥`);
+                return result;
+            }
+            if (hasJackOfTrump) {
+                const result = card.suit === trumpSuit && card.rank === 'J';
+                console.log(`Player has J♠. Card ${result ? 'is' : 'is not'} J♠`);
+                return result;
+            }
+            if (hasAceOfHearts) {
+                const result = card.suit === 'Hearts' && card.rank === 'A';
+                console.log(`Player has A♥. Card ${result ? 'is' : 'is not'} A♥`);
+                return result;
+            }
+        }
+        // If Jack of trumps is led
+        if (leadCard.rank === 'J' && !hasOtherTrump) {
+            console.log('J♠ was led and player has no other trump');
+            if (hasAceOfHearts) {
+                const result = card.suit === 'Hearts' && card.rank === 'A';
+                console.log(`Player has A♥. Card ${result ? 'is' : 'is not'} A♥`);
+                return result;
+            }
+        }
+        // For other trump leads
+        if (hasTrump) {
+            const result = card.suit === trumpSuit || (card.suit === 'Hearts' && card.rank === 'A');
+            console.log(`Player has trump. Card ${result ? 'is' : 'is not'} trump or A♥`);
+            return result;
+        }
+    }
+
+    // If Ace of Hearts is led, but hearts is not trump
+    if (leadCard.suit === 'Hearts' && leadCard.rank === 'A' && trumpSuit !== 'Hearts') {
+        console.log('A♥ was led but Hearts is not trump');
+        if (!hasTrump) {
+            const result = card.suit === 'Hearts' || !player.hand.some(c => c !== null && c.suit === 'Hearts');
+            console.log(`Player has no trump. Card ${result ? 'is' : 'is not'} Hearts or player has no Hearts`);
+            return result;
+        }
+    }
+
+    // If none of the above conditions are met, the card is playable
+    console.log('No special conditions met, card is playable');
     return true;
 }
-
 
 function initiateRobbing(game, players, trumpCard, callback) {
     const dealer = players.find(p => p.isDealer);

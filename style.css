@@ -45,6 +45,7 @@ body {
   background-position: center;
   background-repeat: no-repeat;
   border-radius: 5px;
+  transition: filter 0.3s ease; /* Smooth transition for the gray-out effect */
 }
 
 
@@ -148,8 +149,9 @@ body {
 }
 
 .card.playable {
-  box-shadow: 0 0 1.5vh 0.5vh rgba(0, 255, 0, 0.5); /* Use vh for shadow */
+  box-shadow: 0 0 0 3px orange;
 }
+
 
 @keyframes robbedCardAnimation {
   0% { transform: scale(1); }

@@ -62,7 +62,7 @@ async function initializeGame() {
     // Wait for all assets to load
     await loadAllAssets();
 
-    startNewGame();
+    game.startNewGame();
 }
 
 async function loadAllAssets() {
@@ -86,46 +86,6 @@ async function loadAllAssets() {
     } catch (error) {
         console.error('Error loading assets:', error);
     }
-}
-
-async function startNewGame() {
-    await ui.resetGameUI();
-    deck.reset();
-
-    const dealerIndex = Math.floor(Math.random() * 4);
-    console.log(`Player ${dealerIndex + 1} is the dealer.`);
-
-    for (const [index, player] of game.players.entries()) {
-        player.isDealer = (index === dealerIndex);
-        player.hand = deck.deal(5);
-        await ui.initializeHandUI(player);
-    }
-
-    const trumpCard = deck.cards.pop();
-    if (trumpCard) {
-        game.setTrumpSuit(trumpCard.suit, trumpCard);
-        console.log(`The trump card is: ${trumpCard.rank} of ${trumpCard.suit}`);
-    
-        await ui.initializeDeckUI(dealerIndex, trumpCard);
-
-        if (trumpCard.rank === 'A') {
-            const dealer = game.players[dealerIndex];
-            await handleDealerRob(game, dealer, trumpCard);
-        }
-
-        // Ensure this is called after handleDealerRob completes
-        console.log("Starting first turn after dealing and potential robbing");
-        startFirstTurn(dealerIndex);
-    } else {
-        console.error('Failed to get a trump card from the deck');
-        // Handle this error case, perhaps by restarting the game or showing an error message
-    }
-}
-
-function startFirstTurn(dealerIndex) {
-    game.currentTurnIndex = (dealerIndex + 1) % 4;
-    console.log(`Starting turn for player ${game.currentTurnIndex + 1}`);
-    game.startTurn();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
