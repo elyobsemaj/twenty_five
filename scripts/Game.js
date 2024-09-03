@@ -408,7 +408,7 @@ class Game {
                 const dealer = this.players[this.dealerIndex];
                 return new Promise(resolve => {
                     this.ui.showAlert(`${this.ui.getPlayerName(dealer.id)} (Dealer) is robbing.`, () => {
-                        handleDealerRob(this, dealer, this.currentTrumpCard, resolve);
+                        this.handleDealerRob(dealer, this.currentTrumpCard, resolve);
                     });
                 });
             } else {
