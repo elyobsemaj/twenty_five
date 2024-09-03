@@ -41,25 +41,5 @@ class AIPlayer extends Player {
     }
 }
 
-function getPlayableCards(player, leadCard, trumpSuit) {
-    if (!leadCard) {
-        return player.hand;
-    }
-
-    const hasLeadSuit = player.hand.some(card => card.suit === leadCard.suit);
-    const hasTrump = player.hand.some(card => card.suit === trumpSuit || (card.suit === 'Hearts' && card.rank === 'A'));
-
-    if (hasLeadSuit) {
-        return player.hand.filter(card => card.suit === leadCard.suit);
-    } else if (hasTrump) {
-        return player.hand.filter(card => card.suit === trumpSuit || (card.suit === 'Hearts' && card.rank === 'A'));
-    } else {
-        return player.hand;
-    }
-
-    
-
-}
-
 export default Player;
 export { Player, AIPlayer };

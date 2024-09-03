@@ -156,35 +156,6 @@ class UI {
         });
     }
 
-    updatePlayerHandUIAfterRob(player, discardedCardIndex, trumpCard) {
-        const handElement = document.querySelector(`#${player.id} .hand`);
-        if (handElement) {
-            const slotElement = handElement.querySelector(`.slot[data-slot-index="${discardedCardIndex}"]`);
-            if (slotElement) {
-                // Remove the old card
-                slotElement.querySelector('.card')?.remove();
-
-                // Add the new trump card
-                const cardElement = document.createElement('div');
-                cardElement.classList.add('card');
-                cardElement.style.backgroundImage = `url('assets/card${trumpCard.suit}_${trumpCard.rank}.png')`;
-                cardElement.dataset.suit = trumpCard.suit;
-                cardElement.dataset.rank = trumpCard.rank;
-                slotElement.appendChild(cardElement);
-                
-                // Add animation class
-                cardElement.classList.add('robbed-card');
-                setTimeout(() => {
-                    cardElement.classList.remove('robbed-card');
-                }, 1000);
-            } else {
-                console.error(`Slot element at index ${discardedCardIndex} not found for ${player.id}`);
-            }
-        } else {
-            console.error(`Hand element not found for ${player.id}`);
-        }
-    }
-
 
     enableCardSelection(player, callback) {
         const handElement = document.querySelector(`#${player.id} .hand`);
@@ -287,20 +258,19 @@ class UI {
         });
     }
 
-    updatePlayerHandUI(player, emptySlots, debugMode = false) {
+    updatePlayerHandUI(player, emptySlots) {
         console.log(`Updating hand UI for ${player.id}`);
         console.log(`Player's hand:`, JSON.stringify(player.hand));
         console.log(`Empty slots:`, Array.from(emptySlots));
-
+    
         const handElement = document.querySelector(`#${player.id} .hand`);
         if (handElement) {
             const slotElements = handElement.querySelectorAll('.slot');
             slotElements.forEach((slot, index) => {
                 console.log(`Processing slot ${index} for ${player.id}`);
                 const card = player.hand[index];
-                if (card === null || emptySlots.has(index)) {
+                if (emptySlots.has(index)) {
                     console.log(`Slot ${index} is empty`);
-                    // Clear empty slots
                     slot.innerHTML = '';
                 } else if (card) {
                     console.log(`Adding card to slot ${index}:`, JSON.stringify(card));
@@ -310,23 +280,16 @@ class UI {
                         cardElement.classList.add('card');
                         slot.appendChild(cardElement);
                     }
-
-                    // Preserve existing event listeners and classes
-                    const existingClasses = Array.from(cardElement.classList);
-                    const newCardElement = cardElement.cloneNode(true);
-                    existingClasses.forEach(cls => newCardElement.classList.add(cls));
-
-                    if (player.isHuman || debugMode) {
-                        newCardElement.style.backgroundImage = `url('assets/card${card.suit}_${card.rank}.png')`;
-                        newCardElement.classList.remove('face-down');
+    
+                    if (player.isHuman) {
+                        cardElement.style.backgroundImage = `url('assets/card${card.suit}_${card.rank}.png')`;
+                        cardElement.classList.remove('face-down');
                     } else {
-                        newCardElement.style.backgroundImage = `url('assets/card_back.png')`;
-                        newCardElement.classList.add('face-down');
+                        cardElement.style.backgroundImage = `url('assets/card_back.png')`;
+                        cardElement.classList.add('face-down');
                     }
-                    newCardElement.dataset.suit = card.suit;
-                    newCardElement.dataset.rank = card.rank;
-
-                    slot.replaceChild(newCardElement, cardElement);
+                    cardElement.dataset.suit = card.suit;
+                    cardElement.dataset.rank = card.rank;
                 }
             });
             console.log(`Finished updating hand UI for ${player.id}`);
@@ -401,7 +364,51 @@ class UI {
         }
     }
 
+    updatePlayerHandUIAfterRob(player, discardedCardIndex, trumpCard) {
+        const handElement = document.querySelector(`#${player.id} .hand`);
+        if (handElement) {
+            const slotElements = handElement.querySelectorAll('.slot');
+            slotElements.forEach((slot, index) => {
+                const card = player.hand[index];
+                if (index === discardedCardIndex) {
+                    // Remove the old card
+                    slot.innerHTML = '';
+                    
+                    // Add the new trump card
+                    const cardElement = document.createElement('div');
+                    cardElement.classList.add('card');
+                    cardElement.style.backgroundImage = `url('assets/card${trumpCard.suit}_${trumpCard.rank}.png')`;
+                    cardElement.dataset.suit = trumpCard.suit;
+                    cardElement.dataset.rank = trumpCard.rank;
+                    slot.appendChild(cardElement);
+                    
+                    // Add animation class
+                    cardElement.classList.add('robbed-card');
+                    setTimeout(() => {
+                        cardElement.classList.remove('robbed-card');
+                    }, 1000);
+                } else if (card) {
+                    // Update other cards if needed
+                    const cardElement = slot.querySelector('.card');
+                    if (cardElement) {
+                        if (player.isHuman) {
+                            cardElement.style.backgroundImage = `url('assets/card${card.suit}_${card.rank}.png')`;
+                        } else {
+                            cardElement.style.backgroundImage = `url('assets/card_back.png')`;
+                        }
+                        cardElement.dataset.suit = card.suit;
+                        cardElement.dataset.rank = card.rank;
+                    }
+                }
+            });
+        } else {
+            console.error(`Hand element not found for ${player.id}`);
+        }
+    }
+
 }
+
+
 
 console.log('UI instance methods:', Object.getOwnPropertyNames(UI.prototype));
 const ui = new UI();

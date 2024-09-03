@@ -4,8 +4,8 @@ import ui from './UI.js';
 import Deck from './Deck.js';
 import { Player, AIPlayer } from './Player.js';
 import ScoreManager from './ScoreManager.js';
-import { canPlayCard, initiateRobbing, checkAndHandleRobbing, handleDealerRob } from './CardRules.js';
-import { getCardFromElement } from './Utils.js';
+import { canPlayCard } from './CardRules.js';
+//don't think we need this? import { getCardFromElement } from './UI.js';
 
 let game, deck, scoreManager;
 let debugMode = false;

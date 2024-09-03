@@ -1,6 +1,6 @@
 // Game.js
 
-import { canPlayCard, initiateRobbing, checkAndHandleRobbing, performRob, handleDealerRob, handlePlayerRob } from './CardRules.js';
+import { canPlayCard } from './CardRules.js';
 import Deck from './Deck.js';
 
 let game;
@@ -37,7 +37,7 @@ class Game {
         return this.dealerIndex + 1;
     }
 
-    startTurn() {
+    async startTurn() {
         if (this.gameEnded) {
             return;
         }
@@ -49,14 +49,27 @@ class Game {
                 this.enableHumanPlay(currentPlayer);
             } else {
                 setTimeout(() => {
+                    console.log('AI player hand before getAISelectedCard:', currentPlayer.hand);
                     const aiCard = this.getAISelectedCard(currentPlayer);
-                    this.playCard(currentPlayer, aiCard);
+                    console.log('Selected AI card:', aiCard);
+                    if (aiCard && typeof aiCard === 'object' && aiCard.rank && aiCard.suit) {
+                        this.playCard(currentPlayer, aiCard);
+                    } else {
+                        console.error(`AI player ${currentPlayer.id} couldn't select a valid card`, aiCard);
+                        // Handle this error case, perhaps by skipping the turn or ending the game
+                    }
                 }, 1000);
             }
         };
 
         if (!this.playersWhoHaveRobbed.has(currentPlayer.id)) {
-            checkAndHandleRobbing(this, currentPlayer, this.currentTrumpCard, handleTurn);
+            try {
+                await this.checkAndHandleRobbing(currentPlayer, this.currentTrumpCard);
+                handleTurn();
+            } catch (error) {
+                console.error("Error during robbing check:", error);
+                // Optionally handle the error, perhaps by skipping the turn or showing an alert
+            }
         } else {
             handleTurn();
         }
@@ -86,6 +99,11 @@ class Game {
             console.error("Attempted to play a card while a trick is in progress");
             return;
         }
+
+        if (!card || typeof card !== 'object' || !card.rank || !card.suit) {
+            console.error('Invalid card passed to playCard:', card);
+            return;
+        }    
 
         console.log(`${player.id} is attempting to play: ${card.rank} of ${card.suit}`);
 
@@ -253,6 +271,7 @@ class Game {
         this.isFirstTurnAfterDeal = true;
         this.gameEnded = false;
         this.deck = new Deck();
+        this.emptySlots = this.players.map(() => new Set());  // Reset empty slots
         
         // Reset the UI
         if (this.ui && typeof this.ui.resetGameUI === 'function') {
@@ -280,7 +299,8 @@ class Game {
         this.players.forEach((player, index) => {
             player.isDealer = (index === this.dealerIndex);
             player.hand = this.deck.deal(5);
-            player.score = 0; // Reset score for new game
+            player.score = 0;  // Reset score for new game
+            console.log(`Dealt hand to ${player.id}:`, JSON.stringify(player.hand));
         });
 
         const trumpCard = this.deck.cards.pop();
@@ -288,15 +308,22 @@ class Game {
             this.setTrumpSuit(trumpCard.suit, trumpCard);
             console.log(`The trump card is: ${trumpCard.rank} of ${trumpCard.suit}`);
 
-            await this.ui.initializeDeckUI(this.dealerIndex, trumpCard);
+            this.ui.initializeDeckUI(this.dealerIndex, trumpCard);
 
-            for (const player of this.players) {
-                await this.ui.initializeHandUI(player);
-            }
+            const initializeHandPromises = this.players.map(player => 
+                new Promise(resolve => {
+                    this.ui.initializeHandUI(player, () => {
+                        console.log(`Initialized UI for ${player.id}'s hand`);
+                        resolve();
+                    });
+                })
+            );
 
+            await Promise.all(initializeHandPromises)
+            console.log("All hands initialized");
             if (trumpCard.rank === 'A') {
                 const dealer = this.players[this.dealerIndex];
-                await handleDealerRob(this, dealer, trumpCard);
+                await this.handleDealerRob(dealer, trumpCard);
             }
 
             console.log("Starting first turn after dealing and potential robbing");
@@ -439,10 +466,18 @@ class Game {
     enableHumanPlay(player) {
         const leadCard = this.trickCards.length > 0 ? this.trickCards[0].card : null;
         const leadSuit = leadCard ? leadCard.suit : null;
-        const playableCards = player.hand.filter(card => 
-            card !== null && canPlayCard(player, card, leadCard, leadSuit, this.currentTrumpSuit)
-        );
+        console.log('Player hand:', player.hand); // Add this log
+        let playableCards;
+        if (!leadCard) {
+            // If there's no lead card, all cards are playable
+            playableCards = player.hand.filter(card => card !== null);
+        } else {
+            playableCards = player.hand.filter(card => 
+                card !== null && canPlayCard(player, card, leadCard, leadSuit, this.currentTrumpSuit)
+            );
+        }
 
+        console.log('Playable cards:', playableCards); // Add this log
         this.ui.highlightPlayableCards(player, playableCards);
         this.promptForCardSelection(player, playableCards);
     }
@@ -536,20 +571,36 @@ class Game {
     }
 
     getAISelectedCard(player) {
-        const leadCard = this.trickCards.length > 0 ? this.trickCards[0].card : null;
-        const leadSuit = leadCard ? leadCard.suit : null;
-        const playableCards = player.hand.filter(card => 
-            card !== null && canPlayCard(player, card, leadCard, leadSuit, this.currentTrumpSuit)
-        );
+        console.log('AI player hand:', player.hand);
+        
+        // Filter out null or undefined cards
+        const validHand = player.hand.filter(card => card != null);
+        console.log('Valid cards in AI hand:', validHand);
 
-        if (playableCards.length === 0) {
-            console.warn('No playable cards found for AI player. This should not happen.');
-            return player.hand.find(card => card !== null);
+        if (validHand.length === 0) {
+            console.error('No valid cards in AI player hand');
+            return null;
         }
 
-        // AI logic to select the best card...
-        // For simplicity, we'll just return a random playable card
-        return playableCards[Math.floor(Math.random() * playableCards.length)];
+        const leadCard = this.trickCards.length > 0 ? this.trickCards[0].card : null;
+        const leadSuit = leadCard ? leadCard.suit : null;
+        console.log('Lead card:', leadCard, 'Lead suit:', leadSuit, 'Trump suit:', this.currentTrumpSuit);
+
+        const playableCards = validHand.filter(card => 
+            canPlayCard(player, card, leadCard, leadSuit, this.currentTrumpSuit)
+        );
+
+        console.log('Playable cards for AI:', playableCards);
+
+        if (playableCards.length === 0) {
+            console.error('No playable cards found for AI player. This should not happen.');
+            return null;
+        }
+
+        // Select a random playable card
+        const selectedCard = playableCards[Math.floor(Math.random() * playableCards.length)];
+        console.log('Selected AI card:', selectedCard);
+        return selectedCard;
     }
 
     selectAICard(playableCards, leadCard, trumpSuit) {
@@ -609,32 +660,193 @@ class Game {
         );
     }
 
-    initiateRobbing(players, trumpCard, callback) {
+    async initiateRobbing(players, trumpCard) {
         const dealer = players.find(p => p.isDealer);
         
-        if (dealer && trumpCard.rank === 'A') {
-            if (dealer.isHuman) {
-                this.ui.showAlert("You (the dealer) must rob the Ace. Select a card to pay for the rob.", () => {
-                    this.ui.enableCardSelection(dealer, (selectedCard) => {
-                        performRob(this, dealer, selectedCard, trumpCard);
-                        callback();
-                    });
-                });
-            } else {
-                const selectedCard = this.selectCardForRob(dealer);
-                performRob(this, dealer, selectedCard, trumpCard);
-                this.ui.showAlert(`The dealer (Player ${dealer.id}) is robbing.`, callback);
-            }
+        if (dealer && trumpCard.rank === 'A' && !this.playersWhoHaveRobbed.has(dealer.id)) {
+            await this.handleDealerRob(dealer, trumpCard);
         } else {
-            callback();
+            const playerWithAce = players.find(p => 
+                p.hand.some(card => card.suit === trumpCard.suit && card.rank === 'A') && 
+                !this.playersWhoHaveRobbed.has(p.id)
+            );
+
+            if (playerWithAce) {
+                await this.handlePlayerRob(playerWithAce, trumpCard);
+            }
         }
     }
 
-    selectCardForRob(player) {
-        return player.hand.find(card => !(card.suit === this.currentTrumpSuit && card.rank === 'A'));
+    async checkAndHandleRobbing(player, trumpCard) {
+        console.log(`Checking robbing for ${player.id}. Has robbed: ${this.playersWhoHaveRobbed.has(player.id)}`);
+
+        if (this.playersWhoHaveRobbed.has(player.id)) {
+            console.log(`${player.id} has already robbed this hand. Skipping rob check.`);
+            return;
+        }
+
+        const aceOfTrumps = player.hand.find(card => card && card.suit === trumpCard.suit && card.rank === 'A');
+
+        if (aceOfTrumps) {
+            await this.handlePlayerRob(player, trumpCard);
+            this.playersWhoHaveRobbed.add(player.id);
+            console.log(`${player.id} has now robbed. Added to playersWhoHaveRobbed.`);
+        }
     }
 
-    
+    handleDealerRob(dealer, trumpCard) {
+        return new Promise((resolve) => {
+            if (this.playersWhoHaveRobbed.has(dealer.id)) {
+                console.log(`Dealer ${dealer.id} has already robbed this hand.`);
+                resolve();
+                return;
+            }
+
+            this.ui.showAlert(`${this.ui.getPlayerName(dealer.id)} (Dealer) is robbing.`, () => {
+                if (dealer.isHuman) {
+                    this.ui.showAlert("You (the dealer) must rob the Ace. Select a card to pay for the rob.", () => {
+                        this.ui.enableCardSelection(dealer, (selectedCard) => {
+                            if (selectedCard.suit === trumpCard.suit && selectedCard.rank === 'A') {
+                                this.ui.showAlert("You cannot use the Ace of trumps to pay for the rob. Please select another card.", () => {
+                                    this.ui.enableCardSelection(dealer, (newSelectedCard) => {
+                                        this.performRob(dealer, newSelectedCard, trumpCard);
+                                        this.playersWhoHaveRobbed.add(dealer.id);
+                                        this.isFirstTurnAfterDeal = false;
+                                        console.log("Human dealer rob completed");
+                                        resolve();
+                                    });
+                                });
+                            } else {
+                                this.performRob(dealer, selectedCard, trumpCard);
+                                this.playersWhoHaveRobbed.add(dealer.id);
+                                this.isFirstTurnAfterDeal = false;
+                                console.log("Human dealer rob completed");
+                                resolve();
+                            }
+                        });
+                    });
+                } else {
+                    const selectedCard = this.selectCardForRob(dealer, trumpCard.suit);
+                    this.performRob(dealer, selectedCard, trumpCard);
+                    this.playersWhoHaveRobbed.add(dealer.id);
+                    this.isFirstTurnAfterDeal = false;
+                    console.log("AI dealer rob completed");
+                    resolve();
+                }
+            });
+        });
+    }
+    handlePlayerRob(player, trumpCard) {
+        return new Promise((resolve) => {
+            if (player.isHuman) {
+                this.ui.showAlert("You must rob. Select a card to pay for the rob.", () => {
+                    const enableRobSelection = () => {
+                        this.ui.enableCardSelectionForRob(player, trumpCard.suit, (selectedCard) => {
+                            if (selectedCard.suit === trumpCard.suit && selectedCard.rank === 'A') {
+                                this.ui.showAlert("You cannot use the Ace of trumps to pay for the rob. Please select another card.", enableRobSelection);
+                            } else {
+                                this.performRob(player, selectedCard, trumpCard);
+                                console.log('Player hand after robbing:', player.hand); // Add this log
+                                resolve();
+                            }
+                        });
+                    };
+                    enableRobSelection();
+                });
+            } else {
+                const selectedCard = this.selectCardForRob(player, trumpCard.suit);
+                this.performRob(player, selectedCard, trumpCard);
+                this.playersWhoHaveRobbed.add(player.id);
+                this.ui.showAlert(`${this.ui.getPlayerName(player.id)} is robbing.`, () => {
+                    this.ui.updatePlayerHandUIAfterRob(player, player.hand.findIndex(card => card === null), trumpCard);
+                    resolve();
+                });
+            }
+        });
+    }
+
+    performRob(player, selectedCard, trumpCard) {
+        if (!trumpCard || typeof trumpCard !== 'object') {
+            console.error('Invalid trumpCard in performRob:', trumpCard);
+            return;
+        }
+        console.log(`${player.id}'s hand before robbing:`, JSON.stringify(player.hand));
+        console.log(`${player.id} is robbing. Discarding ${selectedCard.rank} of ${selectedCard.suit} and taking ${trumpCard.rank} of ${trumpCard.suit}`);
+
+        // Check if the selected card is the Ace of trumps
+        if (selectedCard.suit === trumpCard.suit && selectedCard.rank === 'A') {
+            console.error("Cannot use Ace of trumps to pay for rob");
+            if (player.isHuman) {
+                this.ui.showAlert("You cannot use the Ace of trumps to pay for the rob. Please select another card.", () => {
+                    this.ui.enableCardSelectionForRob(player, trumpCard.suit, (newSelectedCard) => {
+                        this.performRob(player, newSelectedCard, trumpCard);
+                    });
+                });
+            } else {
+                // For AI, select a different card
+                console.warn("AI attempted to rob with Ace of trumps. Selecting a different card.");
+                const newSelectedCard = this.selectCardForRob(player, trumpCard.suit);
+                this.performRob(player, newSelectedCard, trumpCard);
+            }
+            return;
+        }
+
+        const initialHandSize = player.hand.length;
+        const discardedCardIndex = player.hand.findIndex(card =>
+            card.suit === selectedCard.suit && card.rank === selectedCard.rank
+        );
+
+        console.log(`Discarding card at index ${discardedCardIndex}`);
+
+        // Remove the selected card
+        player.hand.splice(discardedCardIndex, 1);
+
+        console.log(`Hand after discarding:`, JSON.stringify(player.hand));
+
+        // Add the trump card at the same index
+        player.hand.splice(discardedCardIndex, 0, trumpCard);
+
+        console.log(`Hand after adding trump card:`, JSON.stringify(player.hand));
+
+        if (this.ui && typeof this.ui.updatePlayerHandUIAfterRob === 'function') {
+            this.ui.updatePlayerHandUIAfterRob(player, discardedCardIndex, trumpCard);
+        } else {
+            console.error('UI method updatePlayerHandUIAfterRob is not available', this.ui);
+        }
+
+        if (this.ui && typeof this.ui.updateDeckUIAfterRob === 'function') {
+            const dealerIndex = this.players.findIndex(p => p.isDealer);
+            this.ui.updateDeckUIAfterRob(dealerIndex);
+        } else {
+            console.error('UI method updateDeckUIAfterRob is not available', this.ui);
+        }
+
+        console.log(`${player.id}'s hand after robbing:`, JSON.stringify(player.hand));
+
+        if (player.hand.length !== initialHandSize) {
+            console.error(`Error in robbing process: Hand size changed from ${initialHandSize} to ${player.hand.length}`);
+        }
+
+        this.playersWhoHaveRobbed.add(player.id);
+        console.log(`${player.id} has now robbed. Added to playersWhoHaveRobbed.`);
+    }
+
+    selectCardForRob(player, trumpSuit) {
+        // Filter out the Ace of trumps and return the first valid card
+        const validCards = player.hand.filter(card => 
+            card !== null && !(card.suit === trumpSuit && card.rank === 'A')
+        );
+
+        if (validCards.length === 0) {
+            console.error(`No valid cards found for ${player.id} to rob with.`);
+            return null;
+        }
+
+        // For simplicity, we're selecting the first valid card
+        // You might want to implement a more sophisticated selection strategy for AI players
+        return validCards[0];
+    }
+
 }
 
 console.log('Game class defined');
