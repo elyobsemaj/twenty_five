@@ -156,12 +156,12 @@ class UI {
         });
     }
 
-
     enableCardSelection(player, callback) {
         const handElement = document.querySelector(`#${player.id} .hand`);
         const cardElements = handElement.querySelectorAll('.card');
 
-        this.cardSelectionCallback = (event) => {
+        this.cardSelectionHandler = (event) => {
+            event.preventDefault(); // Prevent default behavior for both click and touch
             const cardElement = event.target.closest('.card');
             if (cardElement && cardElement.dataset.suit && cardElement.dataset.rank) {
                 const selectedCard = {
@@ -172,60 +172,16 @@ class UI {
             }
         };
 
-        cardElements.forEach(card => {
-            if (card.dataset.suit && card.dataset.rank) {
-                card.removeEventListener('click', this.cardSelectionCallback);
-                card.addEventListener('click', this.cardSelectionCallback);
-                card.classList.add('selectable');
-            }
-        });
-    }
-
-    enableCardTouchSelection(player, callback) {
-        const handElement = document.querySelector(`#${player.id} .hand`);
-        const cardElements = handElement.querySelectorAll('.card');
-
-        this.cardTouchCallback = (event) => {
-            event.preventDefault();
-            const cardElement = event.currentTarget;
-            if (cardElement.dataset.suit && cardElement.dataset.rank) {
-                const selectedCard = {
-                    suit: cardElement.dataset.suit,
-                    rank: cardElement.dataset.rank
-                };
-                callback(selectedCard);
-            }
-        };
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
 
         cardElements.forEach(card => {
             if (card.dataset.suit && card.dataset.rank) {
-                card.addEventListener('touchstart', this.cardTouchCallback);
+                if (isTouchDevice) {
+                    card.addEventListener('touchstart', this.cardSelectionHandler);
+                } else {
+                    card.addEventListener('click', this.cardSelectionHandler);
+                }
                 card.classList.add('selectable');
-            }
-        });
-    }
-
-
-    enableCardSelectionForRob(player, trumpSuit, callback) {
-        const handElement = document.querySelector(`#${player.id} .hand`);
-        const cardElements = handElement.querySelectorAll('.card');
-    
-        this.cardSelectionCallback = (event) => {
-            const selectedCard = this.getCardFromElement(event.target);
-            if (selectedCard.suit === trumpSuit && selectedCard.rank === 'A') {
-                this.showAlert("You cannot use the Ace of trumps to pay for the rob. Please select another card.");
-            } else {
-                callback(selectedCard);
-            }
-        };
-    
-        cardElements.forEach(card => {
-            const cardData = this.getCardFromElement(card);
-            if (!(cardData.suit === trumpSuit && cardData.rank === 'A')) {
-                card.addEventListener('click', this.cardSelectionCallback);
-                card.classList.add('selectable');
-            } else {
-                card.classList.add('not-selectable');
             }
         });
     }
@@ -235,11 +191,54 @@ class UI {
         const cardElements = handElement.querySelectorAll('.card');
 
         cardElements.forEach(card => {
-            card.removeEventListener('click', this.cardSelectionCallback);
-            card.classList.remove('selectable');
+            // Remove both click and touch event listeners
+            card.removeEventListener('click', this.cardSelectionHandler);
+            card.removeEventListener('touchstart', this.cardSelectionHandler);
+            
+            // Remove all selection-related classes
+            card.classList.remove('selectable', 'not-selectable');
         });
+
+        // Clear the stored handler
+        this.cardSelectionHandler = null;
     }
 
+    enableCardSelectionForRob(player, trumpSuit, callback) {
+        const handElement = document.querySelector(`#${player.id} .hand`);
+        const cardElements = handElement.querySelectorAll('.card');
+
+        this.cardSelectionHandler = (event) => {
+            event.preventDefault();
+            const cardElement = event.target.closest('.card');
+            if (cardElement && cardElement.dataset.suit && cardElement.dataset.rank) {
+                const selectedCard = {
+                    suit: cardElement.dataset.suit,
+                    rank: cardElement.dataset.rank
+                };
+                if (selectedCard.suit === trumpSuit && selectedCard.rank === 'A') {
+                    this.showAlert("You cannot use the Ace of trumps to pay for the rob. Please select another card.");
+                } else {
+                    callback(selectedCard);
+                }
+            }
+        };
+
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
+
+        cardElements.forEach(card => {
+            const cardData = this.getCardFromElement(card);
+            if (!(cardData.suit === trumpSuit && cardData.rank === 'A')) {
+                if (isTouchDevice) {
+                    card.addEventListener('touchstart', this.cardSelectionHandler);
+                } else {
+                    card.addEventListener('click', this.cardSelectionHandler);
+                }
+                card.classList.add('selectable');
+            } else {
+                card.classList.add('not-selectable');
+            }
+        });
+    }
 
     highlightPlayableCards(player, playableCards) {
         const handElement = document.querySelector(`#${player.id} .hand`);
@@ -349,19 +348,6 @@ class UI {
                 deckElement.style.visibility = 'hidden';
             }
         });
-    }
-
-    disableCardTouchSelection(player) {
-        const handElement = document.querySelector(`#${player.id} .hand`);
-        const cardElements = handElement.querySelectorAll('.card');
-
-        if (this.cardTouchCallback) {
-            cardElements.forEach(card => {
-                card.removeEventListener('touchstart', this.cardTouchCallback);
-                card.classList.remove('selectable');
-            });
-            this.cardTouchCallback = null;
-        }
     }
 
     updatePlayerHandUIAfterRob(player, discardedCardIndex, trumpCard) {

@@ -486,14 +486,10 @@ class Game {
         if (this.ui && typeof this.ui.disableCardSelection === 'function') {
             this.ui.disableCardSelection(player);
         }
-        if (this.ui && typeof this.ui.disableCardTouchSelection === 'function') {
-            this.ui.disableCardTouchSelection(player);
-        }
 
         const handleCardSelect = (selectedCard) => {
             if (playableCards.some(card => card.suit === selectedCard.suit && card.rank === selectedCard.rank)) {
                 this.ui.disableCardSelection(player);
-                this.ui.disableCardTouchSelection(player);
                 this.playCard(player, selectedCard);
             } else {
                 this.ui.showAlert('Invalid card selection. Please choose another card.', () => {
@@ -503,10 +499,10 @@ class Game {
         };
 
         if ('ontouchstart' in window) {
-            if (this.ui && typeof this.ui.enableCardTouchSelection === 'function') {
-                this.ui.enableCardTouchSelection(player, handleCardSelect);
+            if (this.ui && typeof this.ui.enableCardSelection === 'function') {
+                this.ui.enableCardSelection(player, handleCardSelect);
             } else {
-                console.error('UI method enableCardTouchSelection is not available', this.ui);
+                console.error('UI method enableCardSelection is not available', this.ui);
             }
         } else {
             if (this.ui && typeof this.ui.enableCardSelection === 'function') {
